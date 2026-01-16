@@ -23,10 +23,105 @@
             --header-font: 'Courier New', Courier, monospace;
         }
 
+        /* Theme: Classic Dark (default) */
+        body.theme-dark {
+            --bg-color: #0a0a0a; 
+            --text-color: #d0d0d0;
+            --accent-color: #ffffff; 
+            --border-color: #333333; 
+            --input-bg: #141414;
+            --container-bg: rgba(15, 15, 15, 0.95);
+        }
+
+        /* Theme: Terminal Green */
+        body.theme-terminal {
+            --bg-color: #0a0f0a; 
+            --text-color: #00ff00;
+            --accent-color: #00ff00; 
+            --border-color: #003300; 
+            --input-bg: #0a1a0a;
+            --danger-color: #ff3300; 
+            --container-bg: rgba(10, 20, 10, 0.95);
+        }
+
+        /* Theme: Crimson */
+        body.theme-crimson {
+            --bg-color: #0f0808; 
+            --text-color: #e0c0c0;
+            --accent-color: #ff4444; 
+            --border-color: #442222; 
+            --input-bg: #1a0a0a;
+            --danger-color: #ff0000; 
+            --container-bg: rgba(20, 10, 10, 0.95);
+        }
+
+        /* Theme: Light Mode */
+        body.theme-light {
+            --bg-color: #f0f0f0; 
+            --scanline-color: rgba(0, 0, 0, 0.02); 
+            --text-color: #1a1a1a;
+            --accent-color: #000000; 
+            --border-color: #cccccc; 
+            --input-bg: #ffffff;
+            --danger-color: #cc0000; 
+            --danger-bg: rgba(200, 0, 0, 0.1); 
+            --container-bg: rgba(255, 255, 255, 0.95);
+        }
+
+        /* Theme: High Contrast */
+        body.theme-highcontrast {
+            --bg-color: #000000; 
+            --text-color: #ffffff;
+            --accent-color: #ffff00; 
+            --border-color: #ffffff; 
+            --input-bg: #000000;
+            --danger-color: #ff0000; 
+            --danger-bg: rgba(255, 0, 0, 0.2); 
+            --container-bg: #000000;
+        }
+
         /* Admin Mode / Sanity Break Theme */
         body.admin-mode {
             --border-color: #a30000;
             --accent-color: #ff0000;
+        }
+
+        /* Accessibility: Reduce Motion */
+        body.reduce-motion,
+        body.reduce-motion * {
+            animation: none !important;
+            transition: none !important;
+        }
+
+        /* Accessibility: Large Text */
+        body.large-text {
+            font-size: 18px;
+        }
+        body.large-text input,
+        body.large-text select,
+        body.large-text textarea,
+        body.large-text button {
+            font-size: 16px;
+        }
+
+        /* Accessibility: Extra Large Text */
+        body.xlarge-text {
+            font-size: 22px;
+        }
+        body.xlarge-text input,
+        body.xlarge-text select,
+        body.xlarge-text textarea,
+        body.xlarge-text button {
+            font-size: 18px;
+        }
+
+        /* Accessibility: Dyslexia-friendly font */
+        body.dyslexia-font,
+        body.dyslexia-font * {
+            font-family: 'OpenDyslexic', 'Comic Sans MS', Arial, sans-serif !important;
+            letter-spacing: 0.1em;
+            word-spacing: 0.2em;
+            line-height: 1.8;
         }
 
         body {
@@ -36,6 +131,7 @@
             color: var(--text-color);
             animation: flicker 0.2s infinite; 
             overflow-y: scroll;
+            transition: background-color 0.3s, color 0.3s;
         }
 
         body::before {
@@ -44,11 +140,21 @@
             background-size: 100% 3px; z-index: 100; pointer-events: none;
         }
 
+        /* Option to hide scanlines */
+        body.no-scanlines::before {
+            display: none;
+        }
+
         .container { position: relative; max-width: 1400px; margin: 10px auto; padding: 20px; border: 1px solid var(--border-color); background: var(--container-bg); box-shadow: 0 0 20px rgba(0,0,0,0.8); }
         
         .header { display: flex; flex-direction: column; align-items: center; border-bottom: 2px solid var(--border-color); padding-bottom: 15px; margin-bottom: 20px; }
         .header-logo-main { max-width: 120px; margin-bottom: 10px; filter: invert(1) brightness(0.8); }
         .header-title-img { max-width: 90%; height: auto; filter: invert(1) brightness(0.9); }
+        
+        body.theme-light .header-logo-main,
+        body.theme-light .header-title-img {
+            filter: none;
+        }
 
         h1 { font-size: 16px; text-transform: uppercase; letter-spacing: 3px; color: #555; margin-top: 5px; }
         h2 { font-size: 18px; margin-top: 10px; margin-bottom: 10px; text-transform: uppercase; border-bottom: 1px solid var(--border-color); padding-bottom: 4px; color: var(--accent-color); letter-spacing: 1px; }
@@ -85,7 +191,18 @@
             width: 100%; padding: 8px; box-sizing: border-box; background-color: #000; color: var(--text-color);
             border: 1px solid var(--border-color); font-family: 'Courier New', Courier, monospace; font-size: 14px;
         }
+        
+        body.theme-light input,
+        body.theme-light select,
+        body.theme-light textarea {
+            background-color: #ffffff;
+        }
+        
         input:focus, select:focus, textarea:focus { border-color: var(--accent-color); outline: none; background-color: #111; }
+        body.theme-light input:focus,
+        body.theme-light select:focus,
+        body.theme-light textarea:focus { background-color: #f8f8f8; }
+        
         textarea { resize: vertical; min-height: 50px; }
 
         .styled-checkbox { display: flex; align-items: center; cursor: pointer; user-select: none; }
@@ -138,8 +255,45 @@
         .sub-skill-header-flex button { padding: 2px 8px; font-size: 12px; margin: 0; }
         
         .settings-container { position: absolute; top: 10px; right: 10px; }
-        #settings-menu { display: none; position: absolute; top: 100%; right: 0; background: var(--bg-color); border: 1px solid var(--border-color); padding: 5px; z-index: 101; min-width: 150px; }
-        #settings-menu button { display: block; width: 100%; text-align: left; margin: 0; margin-bottom: 5px; }
+        #settings-menu { 
+            display: none; 
+            position: absolute; 
+            top: 100%; 
+            right: 0; 
+            background: var(--bg-color); 
+            border: 1px solid var(--border-color); 
+            padding: 10px; 
+            z-index: 101; 
+            min-width: 220px;
+            max-height: 80vh;
+            overflow-y: auto;
+        }
+        #settings-menu h4 {
+            margin: 15px 0 8px 0;
+            padding-bottom: 5px;
+            border-bottom: 1px solid var(--border-color);
+            color: var(--accent-color);
+            font-size: 12px;
+            letter-spacing: 1px;
+        }
+        #settings-menu h4:first-child {
+            margin-top: 0;
+        }
+        #settings-menu button { display: block; width: 100%; text-align: left; margin: 0 0 5px 0; }
+        #settings-menu button.active { background: var(--accent-color); color: var(--bg-color); }
+        #settings-menu .settings-row {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 8px;
+            padding: 5px 0;
+        }
+        #settings-menu .settings-row label {
+            margin: 0;
+            color: var(--text-color);
+            font-weight: normal;
+            cursor: pointer;
+        }
 
         #app-tooltip {
             position: absolute; z-index: 110; background-color: #000; border: 1px solid var(--accent-color); color: var(--text-color);
@@ -181,7 +335,7 @@
         }
     </style>
 </head>
-<body>
+<body class="theme-dark">
 
     <div class="container">
         <!-- All HTML content will be injected by JavaScript -->
@@ -245,8 +399,6 @@
         </div>
     </div>
     
-<script src="socom_data.js"></script>
-<script src="socom_admin_data.js"></script>
 <script>
     // --- DISABLE ENTER KEY ---
     window.addEventListener('keydown', function(e) {
@@ -265,8 +417,44 @@
         
         <div class="settings-container"> 
             <button id="settings-btn">SYSTEM</button> 
-            <div id="settings-menu"> 
-                <button id="admin-login-btn" onclick="toggleAdminMode()">Admin Login</button> 
+            <div id="settings-menu">
+                <h4>THEMES</h4>
+                <button id="theme-dark-btn" class="active" onclick="setTheme('dark')">Classic Dark</button>
+                <button id="theme-terminal-btn" onclick="setTheme('terminal')">Terminal Green</button>
+                <button id="theme-crimson-btn" onclick="setTheme('crimson')">Crimson</button>
+                <button id="theme-light-btn" onclick="setTheme('light')">Light Mode</button>
+                <button id="theme-highcontrast-btn" onclick="setTheme('highcontrast')">High Contrast</button>
+                
+                <h4>ACCESSIBILITY</h4>
+                <div class="settings-row">
+                    <label class="styled-checkbox">
+                        <input type="checkbox" id="reduce-motion-checkbox" onchange="toggleAccessibility('reduce-motion', this.checked)">
+                        <span class="checkbox-visual"></span>
+                    </label>
+                    <label for="reduce-motion-checkbox">Reduce Motion</label>
+                </div>
+                <div class="settings-row">
+                    <label class="styled-checkbox">
+                        <input type="checkbox" id="no-scanlines-checkbox" onchange="toggleAccessibility('no-scanlines', this.checked)">
+                        <span class="checkbox-visual"></span>
+                    </label>
+                    <label for="no-scanlines-checkbox">Hide Scanlines</label>
+                </div>
+                <div class="settings-row">
+                    <label class="styled-checkbox">
+                        <input type="checkbox" id="dyslexia-font-checkbox" onchange="toggleAccessibility('dyslexia-font', this.checked)">
+                        <span class="checkbox-visual"></span>
+                    </label>
+                    <label for="dyslexia-font-checkbox">Dyslexia Font</label>
+                </div>
+                
+                <h4>TEXT SIZE</h4>
+                <button id="text-normal-btn" class="active" onclick="setTextSize('normal')">Normal</button>
+                <button id="text-large-btn" onclick="setTextSize('large')">Large</button>
+                <button id="text-xlarge-btn" onclick="setTextSize('xlarge')">Extra Large</button>
+                
+                <h4>ADMIN</h4>
+                <button id="admin-login-btn" onclick="toggleAdminMode()">Admin Login</button>
             </div> 
         </div>
         
@@ -282,10 +470,8 @@
                     </div>
                 </div>
 
-                <button onclick="resetForm(); showView('character-sheet'); ">> NEW DOSSIER</button>
+                <button onclick="createNewCharacter()">> NEW DOSSIER</button>
                 <button onclick="showView('loader')">> LOAD DOSSIER</button>
-                <a href="/minigames/" class="button" style="text-decoration: none;">> INTEL UTILITIES</a>
-                <button onclick="showView('rules')">> RULES OF ENGAGEMENT</button>
                 <button onclick="showView('about')">> ABOUT AOTD</button>
             </div>
         </main>
@@ -309,11 +495,19 @@
             </div> 
         </main>
         
-        <main id="rules-view" class="hidden"> 
-            <div class="content-menu"><!-- Content for rules will be loaded here --></div> 
-        </main>
         <main id="about-view" class="hidden"> 
-            <div class="content-menu"><!-- Content for about page will be loaded here --></div>
+            <div class="content-menu">
+                <h2>ABOUT AFRAID OF THE DARK</h2>
+                <p>Afraid of the Dark is a tabletop roleplaying game of cosmic horror and conspiracy, inspired by Delta Green and Call of Cthulhu.</p>
+                <p>Players take on the role of agents investigating the supernatural, confronting threats that exist beyond the boundaries of human understanding.</p>
+                <h3>CREDITS</h3>
+                <ul>
+                    <li>Character sheet system designed for web-based play</li>
+                    <li>Inspired by the Delta Green RPG by Arc Dream Publishing</li>
+                    <li>Built with love for cosmic horror</li>
+                </ul>
+                <button onclick="showView('main')">> RETURN TO TERMINAL</button>
+            </div>
         </main>
     `;
 
@@ -407,8 +601,11 @@
     const SKILL_POINTS_BUDGET = 400;
     const MAX_STAT_POINTS = 25, MIN_STAT_VALUE = 8, MAX_STAT_VALUE = 18;
     
+    // --- SETTINGS STATE ---
+    let currentTheme = 'dark';
+    let currentTextSize = 'normal';
+    
     // --- MODIFIED DATA FOR AOTD ---
-    // Agencies/Backgrounds
     const branches = { 
         "federal": "Federal Agent", 
         "enforcement": "Law Enforcement", 
@@ -419,7 +616,6 @@
         "civilian": "Civilian/Consultant"
     };
 
-    // Generic Titles instead of Military Ranks
     const ranks = { 
         federal: [ {name: "Special Agent", grade: "GS-10"}, {name: "Senior Agent", grade: "GS-13"}, {name: "Unit Chief", grade: "GS-15", adminOnly: true} ], 
         enforcement: [ {name: "Officer", grade: "P1"}, {name: "Detective", grade: "D2"}, {name: "Sergeant", grade: "Sgt"}, {name: "Lieutenant", grade: "Lt", adminOnly: true}, {name: "Captain", grade: "Cpt", adminOnly: true} ],
@@ -432,7 +628,6 @@
 
     const stats = ["STR", "DEX", "CON", "INT", "POW", "CHA"];
     
-    // Expanded Delta Green Skill List
     const simpleSkills = [ 
         "Accounting", "Alertness", "Anthropology", "Archeology", "Art", "Artillery", 
         "Athletics", "Bureaucracy", "Computer Science", "Criminology", "Demolitions", 
@@ -454,6 +649,7 @@
     };
 
     const statDescriptions = { STR: { 3: "Feeble", 6: "Weak", 9: "Average", 12: "Strong", 15: "Honed", 18: "Peak Human" }, DEX: { 3: "Clumsy", 6: "Slow", 9: "Average", 12: "Nimble", 15: "Acrobatic", 18: "Lightning" }, CON: { 3: "Sickly", 6: "Fragile", 9: "Average", 12: "Robust", 15: "Tough", 18: "Iron" }, INT: { 3: "Slow", 6: "Dull", 9: "Average", 12: "Bright", 15: "Brilliant", 18: "Genius" }, POW: { 3: "Spineless", 6: "Weak-willed", 9: "Average", 12: "Strong-willed", 15: "Indomitable", 18: "Unshakable" }, CHA: { 3: "Repulsive", 6: "Awkward", 9: "Average", 12: "Charming", 15: "Magnetism", 18: "Iconic" } };
+    
     const tooltipData = {
         'STR': 'Strength: Muscle power, melee damage, lifting.',
         'DEX': 'Dexterity: Agility, hand-eye coordination, reflex speed.',
@@ -462,18 +658,218 @@
         'POW': 'Power: Willpower, gut instinct, psychic resilience. Determines SAN & WP.',
         'CHA': 'Charisma: Personality, charm, leadership. Determines Bonds.'
     };
-    
-    // --- CONTENT LOADING ---
-    function loadContentPanels() {
-        fetch('rules.html')
-            .then(response => response.ok ? response.text() : Promise.reject('rules.html not found'))
-            .then(html => { document.querySelector('#rules-view .content-menu').innerHTML = html; })
-            .catch(error => console.error('Error loading rules:', error));
 
-        fetch('about.html')
-            .then(response => response.ok ? response.text() : Promise.reject('about.html not found'))
-            .then(html => { document.querySelector('#about-view .content-menu').innerHTML = html; })
-            .catch(error => console.error('Error loading about page:', error));
+    const skillDescriptions = {
+        'Accounting': 'Detailed knowledge of financial practices. Use it to find hidden assets, money laundering, or embezzlement.',
+        'Alertness': 'Noticing danger or hidden things. Use it to hear a safety click off, spot a hidden weapon, or detect someone using Stealth.',
+        'Anthropology': 'The study of human cultures. Use it to understand rituals, social structures, and cultural behaviors.',
+        'Archeology': 'The study of past human life through material remains. Use it to date artifacts, identify ruins, or excavate a site without destroying evidence.',
+        'Art': 'The creation and critique of artistic works. Use it to identify forgeries, understand symbolism, or appraise value.',
+        'Artillery': 'Safe and accurate use of heavy gunnery (mortars, howitzers).',
+        'Athletics': 'Physical fitness. Running, climbing, jumping, and throwing.',
+        'Bureaucracy': 'Navigating organizational structures. Use it to obtain resources, fake credentials, expedite permits, or cover up operations within a government agency.',
+        'Computer Science': 'Deep knowledge of software and hardware. Use it to hack systems, recover deleted data, or trace digital footprints.',
+        'Craft': 'Making and repairing tools. Specific types (Locksmith, Electrician) allow for specialized actions.',
+        'Criminology': 'Knowledge of criminal behavior and law enforcement techniques. Use it to profile suspects or predict criminal patterns.',
+        'Demolitions': 'Handling explosives safely. Setting charges and disarming bombs.',
+        'Disguise': 'Altering appearance and mannerisms to avoid recognition.',
+        'Dodge': 'Reflexive action to avoid physical attacks. Against firearms, this only helps you get to cover.',
+        'Drive': 'Operating automobiles under stress or in high-speed pursuits.',
+        'Firearms': 'Safe and accurate use of pistols, rifles, and shotguns.',
+        'First Aid': 'Emergency medical treatment to stabilize injuries and restore a small amount of HP.',
+        'Forensics': 'Collection and analysis of physical evidence (fingerprints, DNA, ballistics).',
+        'Heavy Machinery': 'Operation of large vehicles (tractors, cranes, tanks).',
+        'Heavy Weapons': 'Use of machine guns, rocket launchers, and grenade launchers.',
+        'History': 'Academic knowledge of past events. Use it to identify historical context for a mystery.',
+        'Human Studies': 'Academic knowledge of psychology and sociology.',
+        'HUMINT': 'Human Intelligence. Reading people, gauging truthfulness, and gathering information through conversation.',
+        'Law': 'Knowledge of legal codes and procedures. Use it to navigate the justice system or defend against legal action.',
+        'Medicine': 'Advanced medical knowledge. Diagnosing illness, treating poisons, and long-term care.',
+        'Melee Weapons': 'Combat with handheld weapons (knives, batons, axes).',
+        'Military Science': 'Knowledge of military tactics, hierarchy, and protocol.',
+        'Navigate': 'finding one\'s way via map, compass, or landmarks.',
+        'Occult': 'Knowledge of the supernatural, folklore, and secret history. Essential for identifying unnatural threats.',
+        'Paranormal': 'Investigation of ghosts, cryptids, and fringe science.',
+        'Persuade': 'Convincing others to do what you want through logic, emotion, or deception.',
+        'Pharmacy': 'Knowledge of drugs, poisons, and chemistry.',
+        'Pilot': 'Operating airborne or waterborne vehicles.',
+        'Psychotherapy': 'Diagnosing and treating mental illness. Recovering Sanity Points.',
+        'Ride': 'Riding and handling animals.',
+        'Science': 'Academic knowledge of biology, chemistry, physics, etc.',
+        'Search': 'Thoroughly searching an area for hidden items or clues.',
+        'SIGINT': 'Signals Intelligence. Encryption, code-breaking, and electronic surveillance.',
+        'Stealth': 'Moving silently and remaining unseen.',
+        'Surgery': 'Invasive medical procedures to treat severe wounds.',
+        'Survival': 'Surviving in the wilderness (finding food, shelter, tracking).',
+        'Swim': 'Moving through water under stress.',
+        'Unarmed Combat': 'Fighting without weapons (brawling, martial arts).'
+    };
+
+    const weaponPresets = {
+        "Standard Issue": [
+            { name: "Service Pistol (Light)", expense: "Standard", skillIdentifier: "Firearms", range: 10, dmg: "1D8", ap: "", lethality: "", ammoC: 17, ammoM: 17, desc: "Standard FBI/Police issue.", examples: "Glock 17, Sig P226." },
+            { name: "Service Pistol (Medium)", expense: "Standard", skillIdentifier: "Firearms", range: 15, dmg: "1D10", ap: "", lethality: "", ammoC: 15, ammoM: 15, desc: ".40 S&W or .45 ACP sidearms.", examples: "Glock 22, M1911." },
+            { name: "Back-up Revolver", expense: "Standard", skillIdentifier: "Firearms", range: 5, dmg: "1D8", ap: "", lethality: "", ammoC: 5, ammoM: 5, desc: "Small, concealable.", examples: "S&W J-Frame." },
+            { name: "Patrol Shotgun", expense: "Standard", skillIdentifier: "Firearms", range: 50, dmg: "2D10", ap: "", lethality: "", ammoC: 6, ammoM: 6, desc: "Standard pump-action.", examples: "Remington 870." },
+            { name: "Patrol Carbine", expense: "Unusual", skillIdentifier: "Firearms", range: 100, dmg: "1D12", ap: "3", lethality: "10", ammoC: 30, ammoM: 30, desc: "Semi-auto rifle kept in trunks.", examples: "AR-15." }
+        ],
+        "Melee Weapons": [
+            { name: "Unarmed", expense: "N/A", skillIdentifier: "Unarmed Combat", range: 1, dmg: "1D4-1", ap: "", lethality: "", ammoC: "", ammoM: "", desc: "Fists and feet.", examples: "Brawling." },
+            { name: "Tactical Knife", expense: "Incidental", skillIdentifier: "Melee Weapons", range: 1, dmg: "1D6", ap: "3", lethality: "", ammoC: "", ammoM: "", desc: "Combat blade.", examples: "Ka-Bar." },
+            { name: "Baton/Asp", expense: "Incidental", skillIdentifier: "Melee Weapons", range: 1, dmg: "1D6", ap: "", lethality: "", ammoC: "", ammoM: "", desc: "Collapsible steel baton.", examples: "Police standard." },
+            { name: "Taser (Contact)", expense: "Incidental", skillIdentifier: "Unarmed Combat", range: 1, dmg: "Stun", ap: "", lethality: "", ammoC: "", ammoM: "", desc: "Shock device. Target must make CON test or be stunned.", examples: "" }
+        ],
+        "Heavy Weapons": [
+            { name: "Frag Grenade", expense: "Restricted", skillIdentifier: "Athletics", range: 20, dmg: "1D6", ap: "", lethality: "15", ammoC: 1, ammoM: 1, desc: "Military ordnance. Radius 10m.", examples: "M67." },
+            { name: "Flashbang", expense: "Restricted", skillIdentifier: "Athletics", range: 20, dmg: "Stun", ap: "", lethality: "", ammoC: 1, ammoM: 1, desc: "Blinds and deafens targets.", examples: "M84." },
+            { name: "Smoke Grenade", expense: "Standard", skillIdentifier: "Athletics", range: 20, dmg: "Cover", ap: "", lethality: "", ammoC: 1, ammoM: 1, desc: "Obscures vision.", examples: "M18." },
+            { name: "RPG / Rocket", expense: "Restricted", skillIdentifier: "Heavy Weapons", range: 200, dmg: "", ap: "20", lethality: "30", ammoC: 1, ammoM: 1, desc: "Anti-tank weapon.", examples: "AT4." },
+            { name: "Heavy Machine Gun", expense: "Restricted", skillIdentifier: "Heavy Weapons", range: 400, dmg: "2D12", ap: "5", lethality: "20", ammoC: 100, ammoM: 100, desc: "Mounted automatic weapon.", examples: "M2 Browning." }
+        ]
+    };
+
+    const armorPresets = [
+        { name: "Kevlar Vest (Light)", ap: 3, desc: "Concealable under loose clothing. Standard issue for Agents.", isBombSuit: false },
+        { name: "Tactical Vest (Heavy)", ap: 5, desc: "Visible plate carrier. Used by SWAT/HRT.", isBombSuit: false },
+        { name: "Riot Gear", ap: 4, desc: "Includes helmet and pads. Bulky.", isBombSuit: false },
+        { name: "Bomb Suit", ap: 10, desc: "Explosive ordnance disposal suit. User cannot run.", isBombSuit: true }
+    ];
+
+    // --- INITIALIZATION ---
+    window.onload = () => {
+        totalBaseSkillPoints = Object.values(baseSkillValues).reduce((a, b) => a + b, 0);
+        populateBranches(); 
+        populateStats(); 
+        populateSkills(); 
+        loadSavedSheets(); 
+        setupTooltips(); 
+        loadDailyHistory(); 
+        populateWeaponCategories();
+        loadSettings();
+        
+        document.getElementById('settings-btn').addEventListener('click', (e) => { 
+            e.stopPropagation();
+            const menu = document.getElementById('settings-menu');
+            menu.style.display = menu.style.display === 'block' ? 'none' : 'block'; 
+        });
+        
+        // Close settings menu when clicking elsewhere
+        document.addEventListener('click', (e) => {
+            const settingsMenu = document.getElementById('settings-menu');
+            const settingsBtn = document.getElementById('settings-btn');
+            if (!settingsMenu.contains(e.target) && e.target !== settingsBtn) {
+                settingsMenu.style.display = 'none';
+            }
+        });
+        
+        document.getElementById('lock-branch-rank-checkbox').addEventListener('change', updateBranchRankLockState);
+        document.getElementById('sheet-form').addEventListener('input', () => { isFormDirty = true; updateSkillPointsCounter(); });
+        document.getElementById('skills-container').addEventListener('input', updateLinkedWeaponStats);
+        document.getElementById('skills-container').addEventListener('change', (event) => { if (event.target.type === 'checkbox') { updateRollSkillsButtonVisibility(); } });
+        window.addEventListener('beforeunload', (e) => { if (isFormDirty) { e.preventDefault(); e.returnValue = ''; } });
+    };
+
+    // --- THEME & ACCESSIBILITY FUNCTIONS ---
+    function setTheme(themeName) {
+        const themes = ['dark', 'terminal', 'crimson', 'light', 'highcontrast'];
+        themes.forEach(t => document.body.classList.remove(`theme-${t}`));
+        document.body.classList.add(`theme-${themeName}`);
+        currentTheme = themeName;
+        
+        // Update button states
+        document.querySelectorAll('#settings-menu button[id^="theme-"]').forEach(btn => btn.classList.remove('active'));
+        document.getElementById(`theme-${themeName}-btn`).classList.add('active');
+        
+        saveSettings();
+    }
+
+    function setTextSize(size) {
+        document.body.classList.remove('large-text', 'xlarge-text');
+        if (size === 'large') {
+            document.body.classList.add('large-text');
+        } else if (size === 'xlarge') {
+            document.body.classList.add('xlarge-text');
+        }
+        currentTextSize = size;
+        
+        // Update button states
+        document.querySelectorAll('#settings-menu button[id^="text-"]').forEach(btn => btn.classList.remove('active'));
+        document.getElementById(`text-${size}-btn`).classList.add('active');
+        
+        saveSettings();
+    }
+
+    function toggleAccessibility(option, enabled) {
+        if (enabled) {
+            document.body.classList.add(option);
+        } else {
+            document.body.classList.remove(option);
+        }
+        saveSettings();
+    }
+
+    function saveSettings() {
+        const settings = {
+            theme: currentTheme,
+            textSize: currentTextSize,
+            reduceMotion: document.body.classList.contains('reduce-motion'),
+            noScanlines: document.body.classList.contains('no-scanlines'),
+            dyslexiaFont: document.body.classList.contains('dyslexia-font')
+        };
+        localStorage.setItem('aotd_settings', JSON.stringify(settings));
+    }
+
+    function loadSettings() {
+        const saved = localStorage.getItem('aotd_settings');
+        if (saved) {
+            const settings = JSON.parse(saved);
+            setTheme(settings.theme || 'dark');
+            setTextSize(settings.textSize || 'normal');
+            
+            if (settings.reduceMotion) {
+                document.body.classList.add('reduce-motion');
+                document.getElementById('reduce-motion-checkbox').checked = true;
+            }
+            if (settings.noScanlines) {
+                document.body.classList.add('no-scanlines');
+                document.getElementById('no-scanlines-checkbox').checked = true;
+            }
+            if (settings.dyslexiaFont) {
+                document.body.classList.add('dyslexia-font');
+                document.getElementById('dyslexia-font-checkbox').checked = true;
+            }
+        }
+    }
+
+    // --- NEW CHARACTER FUNCTION ---
+    function createNewCharacter() {
+        resetForm();
+        showView('character-sheet');
+    }
+    
+    function resetForm() {
+        document.getElementById('sheet-form').reset();
+        document.getElementById('character-id').value = `char_${Date.now()}`;
+        document.getElementById('bonds-container').innerHTML = '';
+        document.getElementById('weapons-body').innerHTML = '';
+        deactivateArmor();
+        populateSkills(); 
+        populateStats(); 
+        addDefaultUnarmed(); 
+        updateAllCalculations(); 
+        checkAdaptedStatus();
+        document.getElementById('lock-branch-rank-checkbox').checked = false;
+        updateBranchRankLockState();
+        updateRollSkillsButtonVisibility();
+        isFormDirty = false;
+        setSkillInputMax(80);
+        isSkillSetupMode = true;
+        updateSkillPointsCounter();
+        setupTooltips();
+        
+        const branchSelect = document.getElementById('branch');
+        if(branchSelect.options.length > 0) branchSelect.selectedIndex = 0;
+        updateRanks();
     }
 
     function loadDailyHistory() {
@@ -485,121 +881,40 @@
         const day = today.getDate();
         const dateString = `${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}-${today.getFullYear()}`;
         titleEl.textContent = `HISTORICAL ARCHIVE // ${dateString}`;
+        
+        // Fallback history entries for when history.json isn't available
+        const fallbackHistory = [
+            { event: "The world turns. Darkness persists. Stay vigilant." },
+            { event: "Archives indicate heightened activity in remote locations. Proceed with caution." },
+            { event: "Another day in the shadow war. Trust no one. Question everything." }
+        ];
+        
         fetch('history.json')
-            .then(response => { if (!response.ok) { throw new Error(`Network response was not ok.`); } return response.json(); })
+            .then(response => { 
+                if (!response.ok) { throw new Error(`Network response was not ok.`); } 
+                return response.json(); 
+            })
             .then(data => {
                 const todayEvent = data.find(item => item.month === month && item.day === day);
                 if (todayEvent) {
                     contentEl.textContent = todayEvent.event;
-                    if (todayEvent.image_url) { imageEl.src = todayEvent.image_url; imageEl.alt = todayEvent.image_alt || "Historical event"; imageEl.style.display = 'block'; } else { imageEl.style.display = 'none'; }
-                } else { contentEl.textContent = 'No significant archive data for this date.'; imageEl.style.display = 'none'; }
+                    if (todayEvent.image_url) { 
+                        imageEl.src = todayEvent.image_url; 
+                        imageEl.alt = todayEvent.image_alt || "Historical event"; 
+                        imageEl.style.display = 'block'; 
+                    } else { 
+                        imageEl.style.display = 'none'; 
+                    }
+                } else { 
+                    contentEl.textContent = fallbackHistory[Math.floor(Math.random() * fallbackHistory.length)].event; 
+                    imageEl.style.display = 'none'; 
+                }
             })
-            .catch(error => { console.error('Error fetching historical data:', error); contentEl.textContent = 'Unable to access archives.'; imageEl.style.display = 'none'; });
-    }
-
-    // --- INITIALIZATION ---
-    window.onload = () => {
-        totalBaseSkillPoints = Object.values(baseSkillValues).reduce((a, b) => a + b, 0);
-        loadContentPanels();
-        populateBranches(); populateStats(); populateSkills(); loadSavedSheets(); setupTooltips(); loadDailyHistory(); populateWeaponCategories();
-        document.getElementById('settings-btn').addEventListener('click', () => { document.getElementById('settings-menu').style.display = document.getElementById('settings-menu').style.display === 'block' ? 'none' : 'block'; });
-        document.getElementById('lock-branch-rank-checkbox').addEventListener('change', updateBranchRankLockState);
-        document.getElementById('sheet-form').addEventListener('input', () => { isFormDirty = true; updateSkillPointsCounter(); });
-        document.getElementById('skills-container').addEventListener('input', updateLinkedWeaponStats);
-        document.getElementById('skills-container').addEventListener('change', (event) => { if (event.target.type === 'checkbox') { updateRollSkillsButtonVisibility(); } });
-        window.addEventListener('beforeunload', (e) => { if (isFormDirty) { e.preventDefault(); e.returnValue = ''; } });
-    };
-    
-    function resetForm() {
-        document.getElementById('sheet-form').reset();
-        document.getElementById('character-id').value = `char_${Date.now()}`;
-        document.getElementById('bonds-container').innerHTML = '';
-        document.getElementById('weapons-body').innerHTML = '';
-        deactivateArmor();
-        populateSkills(); populateStats(); addDefaultUnarmed(); updateAllCalculations(); checkAdaptedStatus();
-        document.getElementById('lock-branch-rank-checkbox').checked = false;
-        updateBranchRankLockState();
-        updateRollSkillsButtonVisibility();
-        isFormDirty = false;
-        setSkillInputMax(80);
-        isSkillSetupMode = true;
-        updateSkillPointsCounter();
-        setupTooltips();
-        
-        // Reset to first agency
-        const branchSelect = document.getElementById('branch');
-        if(branchSelect.options.length > 0) branchSelect.selectedIndex = 0;
-        updateRanks();
-    }
-    
-    // START: MODIFIED/ADDED FUNCTIONS
-    function populateBranches() {
-        const branchSelect = document.getElementById('branch');
-        const currentBranchValue = branchSelect.value;
-        const branchList = Object.keys(branches);
-        let optionsHTML = '';
-
-        branchList.forEach(key => {
-            optionsHTML += `<option value="${key}">${branches[key].toUpperCase()}</option>`;
-        });
-
-        branchSelect.innerHTML = optionsHTML;
-        if (branchSelect.querySelector(`option[value="${currentBranchValue}"]`)) {
-            branchSelect.value = currentBranchValue;
-        }
-    }
-    
-    function populateStats() { document.getElementById('stats-container').innerHTML = stats.map(stat => `<div class="stat-item"><div class="stat-header"><label data-tooltip="${tooltipData[stat]}">${stat}</label><button type="button" onclick="changeStat('${stat}', -1)">-</button><input type="number" id="${stat}" value="${MIN_STAT_VALUE}" readonly oninput="updateAllCalculations()"><button type="button" onclick="changeStat('${stat}', 1)">+</button><span id="${stat}x5">x5: 0</span></div><div id="${stat}-desc" class="stat-desc"></div></div>`).join(''); }
-    
-    function populateSkills() { 
-        const container = document.getElementById('skills-container'); 
-        let html = '<div class="grid-container" style="grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); grid-auto-rows: min-content; align-items: start;">'; 
-        
-        html += simpleSkills.map(skill => { 
-            const baseValue = baseSkillValues[skill] || 0; 
-            const skillId = `skill-${skill.replace(/\s+/g, '-')}`; 
-            return `<div class="skill-item-simple"><label class="styled-checkbox"><input type="checkbox" id="check-${skillId}"><span class="checkbox-visual"></span></label><div class="skill-label-input"><label for="${skillId}" data-tooltip="${skillDescriptions[skill] || ''}">${skill.toUpperCase()}</label><input type="number" id="${skillId}" min="0" max="100" value="${baseValue}"></div></div>`; 
-        }).join(''); 
-        html += '</div>'; 
-        
-        // Add Sub-Skills (Military Science, Pilot, Craft, Language, Science)
-        html += '<div class="grid-container" style="grid-template-columns: 1fr 1fr; align-items: stretch; margin-top: 10px;">'; 
-        
-        // MilSci and Pilot (Left Column)
-        html += `<div>
-            <div class="sub-skill-group"> <h3 class="sub-skill-header" data-tooltip="${skillDescriptions['Military Science'] || 'Tactics and command.'}">Military Science</h3> 
-                <div class="sub-skill-item"><label class="styled-checkbox"><input type="checkbox" id="check-skill-milsci-land"><span class="checkbox-visual"></span></label><div class="skill-label-input"><label>Land</label><input type="number" id="skill-milsci-land" value="0" min="0" max="100"></div></div> 
-                <div class="sub-skill-item"><label class="styled-checkbox"><input type="checkbox" id="check-skill-milsci-sea"><span class="checkbox-visual"></span></label><div class="skill-label-input"><label>Sea</label><input type="number" id="skill-milsci-sea" value="0" min="0" max="100"></div></div> 
-                <div class="sub-skill-item"><label class="styled-checkbox"><input type="checkbox" id="check-skill-milsci-air"><span class="checkbox-visual"></span></label><div class="skill-label-input"><label>Air</label><input type="number" id="skill-milsci-air" value="0" min="0" max="100"></div></div> 
-            </div>
-            <div class="sub-skill-group" style="margin-top: 10px;"> <h3 class="sub-skill-header" data-tooltip="${skillDescriptions['Pilot'] || 'Operating vehicles.'}">Pilot</h3> 
-                <div class="sub-skill-item"><label class="styled-checkbox"><input type="checkbox" id="check-skill-pilot-airplane"><span class="checkbox-visual"></span></label><div class="skill-label-input"><label>Airplane</label><input type="number" id="skill-pilot-airplane" value="0" min="0" max="100"></div></div> 
-                <div class="sub-skill-item"><label class="styled-checkbox"><input type="checkbox" id="check-skill-pilot-helicopter"><span class="checkbox-visual"></span></label><div class="skill-label-input"><label>Helicopter</label><input type="number" id="skill-pilot-helicopter" value="0" min="0" max="100"></div></div> 
-                <div class="sub-skill-item"><label class="styled-checkbox"><input type="checkbox" id="check-skill-pilot-boat"><span class="checkbox-visual"></span></label><div class="skill-label-input"><label>Boat</label><input type="number" id="skill-pilot-boat" value="0" min="0" max="100"></div></div> 
-                <div class="sub-skill-item"><label class="styled-checkbox"><input type="checkbox" id="check-skill-pilot-rc"><span class="checkbox-visual"></span></label><div class="skill-label-input"><label>RC/Drone</label><input type="number" id="skill-pilot-rc" value="0" min="0" max="100"></div></div> 
-            </div>
-        </div>`; 
-        
-        // Science, Craft, Language (Right Column)
-        html += `<div>
-            <div class="sub-skill-group"> <h3 class="sub-skill-header" data-tooltip="${skillDescriptions['Science'] || 'Academic study.'}">Science</h3> 
-                <div class="sub-skill-item"><label class="styled-checkbox"><input type="checkbox" id="check-skill-science-biology"><span class="checkbox-visual"></span></label><div class="skill-label-input"><label>Biology</label><input type="number" id="skill-science-biology" value="0" min="0" max="100"></div></div> 
-                <div class="sub-skill-item"><label class="styled-checkbox"><input type="checkbox" id="check-skill-science-chemistry"><span class="checkbox-visual"></span></label><div class="skill-label-input"><label>Chemistry</label><input type="number" id="skill-science-chemistry" value="0" min="0" max="100"></div></div> 
-                <div class="sub-skill-item"><label class="styled-checkbox"><input type="checkbox" id="check-skill-science-mathematics"><span class="checkbox-visual"></span></label><div class="skill-label-input"><label>Mathematics</label><input type="number" id="skill-science-mathematics" value="0" min="0" max="100"></div></div> 
-                <div class="sub-skill-item"><label class="styled-checkbox"><input type="checkbox" id="check-skill-science-physics"><span class="checkbox-visual"></span></label><div class="skill-label-input"><label>Physics</label><input type="number" id="skill-science-physics" value="0" min="0" max="100"></div></div> 
-            </div>
-            <div class="sub-skill-group" style="margin-top: 10px;"> 
-                <div class="sub-skill-header-flex"><h3 class="sub-skill-header">Craft</h3><button type="button" onclick="addCraftSkill()">+ ADD</button></div> 
-                <div id="craft-skills-container"></div> 
-            </div>
-            <div class="sub-skill-group" style="margin-top: 10px;"> 
-                <div class="sub-skill-header-flex"><h3 class="sub-skill-header">Languages</h3><button type="button" onclick="addLanguageSkill()">+ ADD</button></div> 
-                <div id="language-skills-container"></div> 
-            </div>
-        </div>`;
-        
-        html += '</div>'; 
-        container.innerHTML = html; 
+            .catch(error => { 
+                console.log('Using fallback history data');
+                contentEl.textContent = fallbackHistory[Math.floor(Math.random() * fallbackHistory.length)].event; 
+                imageEl.style.display = 'none'; 
+            });
     }
 
     // --- TOOLTIP MANAGEMENT ---
@@ -633,7 +948,15 @@
     }
 
     // --- VIEW MANAGEMENT ---
-    function showView(viewId) { document.querySelectorAll('main').forEach(el => el.classList.add('hidden')); const viewEl = document.getElementById(`${viewId}-view`); if(viewEl){ viewEl.classList.remove('hidden'); if(viewId === 'loader') loadSavedSheets();} }
+    function showView(viewId) { 
+        document.querySelectorAll('main').forEach(el => el.classList.add('hidden')); 
+        const viewEl = document.getElementById(`${viewId}-view`); 
+        if(viewEl){ 
+            viewEl.classList.remove('hidden'); 
+            if(viewId === 'loader') loadSavedSheets();
+        } 
+    }
+    
     function confirmReturnToMenu() {
         if (isFormDirty) {
             if (confirm("UNSAVED DATA DETECTED. Returning to the terminal will purge current session. Proceed?")) {
@@ -647,29 +970,55 @@
     
     // --- ADMIN & LOCKING ---
     function toggleAdminMode() {
-        if (!isAdmin) {
-            const pass = prompt("Enter Clearance Code:");
+        const rankSelect = document.getElementById('rank'); 
+        const currentRankValue = rankSelect.value;
+        const derivedInputs = ['bp', 'hp-max', 'wp-max', 'san-max'];
+        
+        if (isAdmin) {
+            isAdmin = false; 
+            if (statsUnlocked) toggleStatsLock();
+            document.body.classList.remove('admin-mode');
+            document.getElementById('admin-login-btn').textContent = 'Admin Login';
+            document.getElementById('toggle-stats-lock-btn').classList.add('hidden');
+            document.getElementById('lock-branch-rank-container').classList.add('hidden');
+            derivedInputs.forEach(id => document.getElementById(id).readOnly = true);
+            updateAllCalculations(); 
+            alert('Admin mode deactivated.');
+        } else {
+            const pass = prompt('Enter SYSTEM OVERRIDE code:');
             if (btoa(pass) === ADMIN_PASSWORD_HASH) {
                 isAdmin = true;
-                alert("CLEARANCE GRANTED: ADMIN PRIVILEGES ACTIVE.");
-            } else {
-                if (pass !== null && pass !== "") alert("ACCESS DENIED.");
-                return;
+                document.body.classList.add('admin-mode');
+                document.getElementById('admin-login-btn').textContent = 'Admin Logout';
+                document.getElementById('toggle-stats-lock-btn').classList.remove('hidden');
+                document.getElementById('lock-branch-rank-container').classList.remove('hidden');
+                derivedInputs.forEach(id => document.getElementById(id).readOnly = false);
+                alert('Override accepted. Modification privileges granted.');
+            } else if (pass) { 
+                alert('Invalid Credentials.'); 
             }
-        } else {
-            isAdmin = false;
-            alert("ADMIN PRIVILEGES REVOKED.");
         }
-        document.body.classList.toggle('admin-mode', isAdmin);
-        document.getElementById('lock-branch-rank-container').classList.toggle('hidden', !isAdmin);
-        document.getElementById('toggle-stats-lock-btn').classList.toggle('hidden', !isAdmin);
         updateRanks(); 
+        rankSelect.value = currentRankValue; 
+        updateBranchRankLockState();
     }
 
     function updateBranchRankLockState() {
         const isLocked = document.getElementById('lock-branch-rank-checkbox').checked;
         document.getElementById('branch').disabled = isLocked;
         document.getElementById('rank').disabled = isLocked;
+    }
+
+    function toggleStatsLock() {
+        if (!isAdmin) return;
+        statsUnlocked = !statsUnlocked;
+        document.getElementById('toggle-stats-lock-btn').textContent = statsUnlocked ? "LOCK STATS" : "FORCE STATS";
+        stats.forEach(stat => { document.getElementById(stat).readOnly = !statsUnlocked; });
+        if (statsUnlocked) { 
+            alert("WARNING: Attributes unlocked. Manual overrides enabled."); 
+        } else { 
+            updateAllCalculations(); 
+        }
     }
 
     function screenshotPage(event) {
@@ -688,15 +1037,10 @@
             link.href = canvas.toDataURL('image/png');
             link.click();
             link.remove();
-        }).catch(err => { console.error("Screenshot failed:", err); alert("Screenshot failed. Check console."); });
-    }
-
-    function toggleStatsLock() {
-        if (!isAdmin) return;
-        statsUnlocked = !statsUnlocked;
-        document.getElementById('toggle-stats-lock-btn').textContent = statsUnlocked ? "LOCK STATS" : "FORCE STATS";
-        stats.forEach(stat => { document.getElementById(stat).readOnly = !statsUnlocked; });
-        if (statsUnlocked) { alert("WARNING: Attributes unlocked. Manual overrides enabled."); } else { updateAllCalculations(); }
+        }).catch(err => { 
+            console.error("Screenshot failed:", err); 
+            alert("Screenshot failed. Check console."); 
+        });
     }
 
     function updateRanks() {
@@ -728,9 +1072,104 @@
         }
     }
 
+    // --- POPULATE FUNCTIONS ---
+    function populateBranches() {
+        const branchSelect = document.getElementById('branch');
+        const currentBranchValue = branchSelect.value;
+        let optionsHTML = '';
+
+        Object.keys(branches).forEach(key => {
+            optionsHTML += `<option value="${key}">${branches[key].toUpperCase()}</option>`;
+        });
+
+        branchSelect.innerHTML = optionsHTML;
+        if (branchSelect.querySelector(`option[value="${currentBranchValue}"]`)) {
+            branchSelect.value = currentBranchValue;
+        }
+    }
+    
+    function populateStats() { 
+        document.getElementById('stats-container').innerHTML = stats.map(stat => 
+            `<div class="stat-item"><div class="stat-header"><label data-tooltip="${tooltipData[stat]}">${stat}</label><button type="button" onclick="changeStat('${stat}', -1)">-</button><input type="number" id="${stat}" value="${MIN_STAT_VALUE}" readonly oninput="updateAllCalculations()"><button type="button" onclick="changeStat('${stat}', 1)">+</button><span id="${stat}x5">x5: 0</span></div><div id="${stat}-desc" class="stat-desc"></div></div>`
+        ).join(''); 
+    }
+    
+    function populateSkills() { 
+        const container = document.getElementById('skills-container'); 
+        let html = '<div class="grid-container" style="grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); grid-auto-rows: min-content; align-items: start;">'; 
+        
+        html += simpleSkills.map(skill => { 
+            const baseValue = baseSkillValues[skill] || 0; 
+            const skillId = `skill-${skill.replace(/\s+/g, '-')}`; 
+            return `<div class="skill-item-simple"><label class="styled-checkbox"><input type="checkbox" id="check-${skillId}"><span class="checkbox-visual"></span></label><div class="skill-label-input"><label for="${skillId}" data-tooltip="${skillDescriptions[skill] || ''}">${skill.toUpperCase()}</label><input type="number" id="${skillId}" min="0" max="100" value="${baseValue}"></div></div>`; 
+        }).join(''); 
+        html += '</div>'; 
+        
+        html += '<div class="grid-container" style="grid-template-columns: 1fr 1fr; align-items: stretch; margin-top: 10px;">'; 
+        
+        html += `<div>
+            <div class="sub-skill-group"> <h3 class="sub-skill-header" data-tooltip="${skillDescriptions['Military Science'] || 'Tactics and command.'}">Military Science</h3> 
+                <div class="sub-skill-item"><label class="styled-checkbox"><input type="checkbox" id="check-skill-milsci-land"><span class="checkbox-visual"></span></label><div class="skill-label-input"><label>Land</label><input type="number" id="skill-milsci-land" value="0" min="0" max="100"></div></div> 
+                <div class="sub-skill-item"><label class="styled-checkbox"><input type="checkbox" id="check-skill-milsci-sea"><span class="checkbox-visual"></span></label><div class="skill-label-input"><label>Sea</label><input type="number" id="skill-milsci-sea" value="0" min="0" max="100"></div></div> 
+                <div class="sub-skill-item"><label class="styled-checkbox"><input type="checkbox" id="check-skill-milsci-air"><span class="checkbox-visual"></span></label><div class="skill-label-input"><label>Air</label><input type="number" id="skill-milsci-air" value="0" min="0" max="100"></div></div> 
+            </div>
+            <div class="sub-skill-group" style="margin-top: 10px;"> <h3 class="sub-skill-header" data-tooltip="${skillDescriptions['Pilot'] || 'Operating vehicles.'}">Pilot</h3> 
+                <div class="sub-skill-item"><label class="styled-checkbox"><input type="checkbox" id="check-skill-pilot-airplane"><span class="checkbox-visual"></span></label><div class="skill-label-input"><label>Airplane</label><input type="number" id="skill-pilot-airplane" value="0" min="0" max="100"></div></div> 
+                <div class="sub-skill-item"><label class="styled-checkbox"><input type="checkbox" id="check-skill-pilot-helicopter"><span class="checkbox-visual"></span></label><div class="skill-label-input"><label>Helicopter</label><input type="number" id="skill-pilot-helicopter" value="0" min="0" max="100"></div></div> 
+                <div class="sub-skill-item"><label class="styled-checkbox"><input type="checkbox" id="check-skill-pilot-boat"><span class="checkbox-visual"></span></label><div class="skill-label-input"><label>Boat</label><input type="number" id="skill-pilot-boat" value="0" min="0" max="100"></div></div> 
+                <div class="sub-skill-item"><label class="styled-checkbox"><input type="checkbox" id="check-skill-pilot-rc"><span class="checkbox-visual"></span></label><div class="skill-label-input"><label>RC/Drone</label><input type="number" id="skill-pilot-rc" value="0" min="0" max="100"></div></div> 
+            </div>
+        </div>`; 
+        
+        html += `<div>
+            <div class="sub-skill-group"> <h3 class="sub-skill-header" data-tooltip="${skillDescriptions['Science'] || 'Academic study.'}">Science</h3> 
+                <div class="sub-skill-item"><label class="styled-checkbox"><input type="checkbox" id="check-skill-science-biology"><span class="checkbox-visual"></span></label><div class="skill-label-input"><label>Biology</label><input type="number" id="skill-science-biology" value="0" min="0" max="100"></div></div> 
+                <div class="sub-skill-item"><label class="styled-checkbox"><input type="checkbox" id="check-skill-science-chemistry"><span class="checkbox-visual"></span></label><div class="skill-label-input"><label>Chemistry</label><input type="number" id="skill-science-chemistry" value="0" min="0" max="100"></div></div> 
+                <div class="sub-skill-item"><label class="styled-checkbox"><input type="checkbox" id="check-skill-science-mathematics"><span class="checkbox-visual"></span></label><div class="skill-label-input"><label>Mathematics</label><input type="number" id="skill-science-mathematics" value="0" min="0" max="100"></div></div> 
+                <div class="sub-skill-item"><label class="styled-checkbox"><input type="checkbox" id="check-skill-science-physics"><span class="checkbox-visual"></span></label><div class="skill-label-input"><label>Physics</label><input type="number" id="skill-science-physics" value="0" min="0" max="100"></div></div> 
+            </div>
+            <div class="sub-skill-group" style="margin-top: 10px;"> 
+                <div class="sub-skill-header-flex"><h3 class="sub-skill-header">Craft</h3><button type="button" onclick="addCraftSkill()">+ ADD</button></div> 
+                <div id="craft-skills-container"></div> 
+            </div>
+            <div class="sub-skill-group" style="margin-top: 10px;"> 
+                <div class="sub-skill-header-flex"><h3 class="sub-skill-header">Languages</h3><button type="button" onclick="addLanguageSkill()">+ ADD</button></div> 
+                <div id="language-skills-container"></div> 
+            </div>
+        </div>`;
+        
+        html += '</div>'; 
+        container.innerHTML = html; 
+    }
+
     // --- STATS & CALCULATIONS ---
-    function changeStat(stat, delta) { if (statsUnlocked) return; const input = document.getElementById(stat); let pointsSpent = stats.reduce((acc, s) => acc + (parseInt(document.getElementById(s).value) - MIN_STAT_VALUE), 0); let currentValue = parseInt(input.value); if (delta > 0 && pointsSpent < MAX_STAT_POINTS && currentValue < MAX_STAT_VALUE) { input.value = currentValue + 1; } else if (delta < 0 && currentValue > MIN_STAT_VALUE) { input.value = currentValue - 1; } updateAllCalculations(); }
-    function updateAllCalculations() { let pointsSpent = 0; stats.forEach(stat => { const value = parseInt(document.getElementById(stat).value); pointsSpent += (value - MIN_STAT_VALUE); document.getElementById(`${stat}x5`).textContent = `x5: ${value * 5}`; document.getElementById(`${stat}-desc`).textContent = getStatDescription(stat, value); }); document.getElementById('stat-points-remaining').textContent = MAX_STAT_POINTS - pointsSpent; updateDerivedAttributes(); updateBondSlots(); updateBondScores(); updateLinkedWeaponStats(); }
+    function changeStat(stat, delta) { 
+        if (statsUnlocked) return; 
+        const input = document.getElementById(stat); 
+        let pointsSpent = stats.reduce((acc, s) => acc + (parseInt(document.getElementById(s).value) - MIN_STAT_VALUE), 0); 
+        let currentValue = parseInt(input.value); 
+        if (delta > 0 && pointsSpent < MAX_STAT_POINTS && currentValue < MAX_STAT_VALUE) { 
+            input.value = currentValue + 1; 
+        } else if (delta < 0 && currentValue > MIN_STAT_VALUE) { 
+            input.value = currentValue - 1; 
+        } 
+        updateAllCalculations(); 
+    }
+    
+    function updateAllCalculations() { 
+        let pointsSpent = 0; 
+        stats.forEach(stat => { 
+            const value = parseInt(document.getElementById(stat).value); 
+            pointsSpent += (value - MIN_STAT_VALUE); 
+            document.getElementById(`${stat}x5`).textContent = `x5: ${value * 5}`; 
+            document.getElementById(`${stat}-desc`).textContent = getStatDescription(stat, value); 
+        }); 
+        document.getElementById('stat-points-remaining').textContent = MAX_STAT_POINTS - pointsSpent; 
+        updateDerivedAttributes(); 
+        updateBondSlots(); 
+        updateBondScores(); 
+        updateLinkedWeaponStats(); 
+    }
    
     function updateDerivedAttributes() {
         const str = parseInt(document.getElementById('STR').value);
@@ -767,15 +1206,40 @@
         checkBreakingPoint();
     }
     
-    function checkBreakingPoint() { const sanCurrent = parseInt(document.getElementById('san-current').value), bp = parseInt(document.getElementById('bp').value); document.getElementById('bp-warning').classList.toggle('hidden', sanCurrent > bp); }
-    function acknowledgeBreakingPoint() { document.getElementById('bp').value = Math.max(0, parseInt(document.getElementById('san-current').value) - parseInt(document.getElementById('POW').value)); document.getElementById('bp-warning').classList.add('hidden'); }
-    function getStatDescription(stat, val) { const tiers = statDescriptions[stat]; let desc = tiers[val] || ''; for (const key in tiers) { if (val >= key) desc = tiers[key]; } return `// ${desc}`; }
+    function checkBreakingPoint() { 
+        const sanCurrent = parseInt(document.getElementById('san-current').value);
+        const bp = parseInt(document.getElementById('bp').value); 
+        document.getElementById('bp-warning').classList.toggle('hidden', sanCurrent > bp); 
+    }
+    
+    function acknowledgeBreakingPoint() { 
+        document.getElementById('bp').value = Math.max(0, parseInt(document.getElementById('san-current').value) - parseInt(document.getElementById('POW').value)); 
+        document.getElementById('bp-warning').classList.add('hidden'); 
+    }
+    
+    function getStatDescription(stat, val) { 
+        const tiers = statDescriptions[stat]; 
+        let desc = tiers[val] || ''; 
+        for (const key in tiers) { 
+            if (val >= key) desc = tiers[key]; 
+        } 
+        return `// ${desc}`; 
+    }
     
     // --- SKILL LOGIC ---
-    function setSkillInputMax(maxValue) { const skillInputs = document.querySelectorAll('#skills-container input[type="number"]'); skillInputs.forEach(input => { input.max = maxValue; if (parseInt(input.value) > maxValue) { input.value = maxValue; } }); }
+    function setSkillInputMax(maxValue) { 
+        const skillInputs = document.querySelectorAll('#skills-container input[type="number"]'); 
+        skillInputs.forEach(input => { 
+            input.max = maxValue; 
+            if (parseInt(input.value) > maxValue) { 
+                input.value = maxValue; 
+            } 
+        }); 
+    }
     
     function updateSkillPointsCounter() {
-        const counterEl = document.getElementById('skill-points-counter'), lockBtn = document.getElementById('lock-skills-btn');
+        const counterEl = document.getElementById('skill-points-counter');
+        const lockBtn = document.getElementById('lock-skills-btn');
         counterEl.classList.remove('hidden'); 
         lockBtn.classList.toggle('hidden', !isSkillSetupMode); 
 
@@ -805,40 +1269,140 @@
         } 
     }
     
-    function updateRollSkillsButtonVisibility() { const checkedSkills = document.querySelectorAll('#skills-container input[type="checkbox"]:checked'); document.getElementById('roll-skills-btn').classList.toggle('hidden', checkedSkills.length === 0); }
-    function startSkillImprovement() { document.getElementById('skill-roll-modal').classList.remove('hidden'); document.getElementById('skill-roll-prompt').classList.remove('hidden'); document.getElementById('skill-roll-process').classList.add('hidden'); document.getElementById('skill-roll-conclusion').classList.add('hidden'); }
-    function closeSkillRollModal() { document.getElementById('skill-roll-modal').classList.add('hidden'); }
+    function updateRollSkillsButtonVisibility() { 
+        const checkedSkills = document.querySelectorAll('#skills-container input[type="checkbox"]:checked'); 
+        document.getElementById('roll-skills-btn').classList.toggle('hidden', checkedSkills.length === 0); 
+    }
+    
+    function startSkillImprovement() { 
+        document.getElementById('skill-roll-modal').classList.remove('hidden'); 
+        document.getElementById('skill-roll-prompt').classList.remove('hidden'); 
+        document.getElementById('skill-roll-process').classList.add('hidden'); 
+        document.getElementById('skill-roll-conclusion').classList.add('hidden'); 
+    }
+    
+    function closeSkillRollModal() { 
+        document.getElementById('skill-roll-modal').classList.add('hidden'); 
+    }
     
     async function executeSkillRolls() {
-        const checkedBoxes = Array.from(document.querySelectorAll('#skills-container input[type="checkbox"]:checked')), skillsToRoll = [];
+        const checkedBoxes = Array.from(document.querySelectorAll('#skills-container input[type="checkbox"]:checked'));
+        const skillsToRoll = [];
+        
         for (const box of checkedBoxes) {
-            const skillItem = box.closest('.skill-item-simple, .sub-skill-item'); if (!skillItem) continue;
-            const scoreInput = skillItem.querySelector('input[type="number"]'); let skillName = "Unknown";
-            if (skillItem.classList.contains('skill-item-simple')) { skillName = skillItem.querySelector('.skill-label-input label').textContent.trim(); } else { const craftSelect = skillItem.querySelector('select'); const langInput = skillItem.querySelector('input[placeholder="Language"]'); if (craftSelect) { skillName = `Craft: ${craftSelect.value}`; } else if (langInput) { skillName = `Language: ${langInput.value || '(Unnamed)'}`; } else { const group = skillItem.closest('.sub-skill-group'), header = group.querySelector('.sub-skill-header'), subTypeName = skillItem.querySelector('.skill-label-input label').textContent.trim(), headerName = header.textContent.trim(); skillName = `${headerName}: ${subTypeName}`; } }
+            const skillItem = box.closest('.skill-item-simple, .sub-skill-item'); 
+            if (!skillItem) continue;
+            const scoreInput = skillItem.querySelector('input[type="number"]'); 
+            let skillName = "Unknown";
+            
+            if (skillItem.classList.contains('skill-item-simple')) { 
+                skillName = skillItem.querySelector('.skill-label-input label').textContent.trim(); 
+            } else { 
+                const craftSelect = skillItem.querySelector('select'); 
+                const langInput = skillItem.querySelector('input[placeholder="Language"]'); 
+                if (craftSelect) { 
+                    skillName = `Craft: ${craftSelect.value}`; 
+                } else if (langInput) { 
+                    skillName = `Language: ${langInput.value || '(Unnamed)'}`; 
+                } else { 
+                    const group = skillItem.closest('.sub-skill-group');
+                    const header = group.querySelector('.sub-skill-header');
+                    const subTypeName = skillItem.querySelector('.skill-label-input label').textContent.trim();
+                    const headerName = header.textContent.trim(); 
+                    skillName = `${headerName}: ${subTypeName}`; 
+                } 
+            }
+            
             const currentScore = parseInt(scoreInput.value, 10);
-            if (currentScore >= 99) { alert(`ERROR: ${skillName} maxed.`); closeSkillRollModal(); return; }
+            if (currentScore >= 99) { 
+                alert(`ERROR: ${skillName} maxed.`); 
+                closeSkillRollModal(); 
+                return; 
+            }
             skillsToRoll.push({ name: skillName, checkbox: box, input: scoreInput, currentScore: currentScore });
         }
-        if (skillsToRoll.length === 0) { closeSkillRollModal(); return; }
-        document.getElementById('skill-roll-prompt').classList.add('hidden'); document.getElementById('skill-roll-process').classList.remove('hidden');
-        const skillNameEl = document.getElementById('rolling-skill-name'), diceEl = document.getElementById('dice-animation'), resultEl = document.getElementById('roll-result-text');
+        
+        if (skillsToRoll.length === 0) { 
+            closeSkillRollModal(); 
+            return; 
+        }
+        
+        document.getElementById('skill-roll-prompt').classList.add('hidden'); 
+        document.getElementById('skill-roll-process').classList.remove('hidden');
+        
+        const skillNameEl = document.getElementById('rolling-skill-name');
+        const diceEl = document.getElementById('dice-animation');
+        const resultEl = document.getElementById('roll-result-text');
+        
         for (const skill of skillsToRoll) {
-            skillNameEl.textContent = `IMPROVING: ${skill.name.toUpperCase()}`; resultEl.textContent = '';
-            const animationInterval = setInterval(() => { diceEl.textContent = Math.floor(Math.random() * 4) + 1; }, 100);
-            await new Promise(resolve => setTimeout(resolve, 800)); clearInterval(animationInterval);
-            const roll = Math.floor(Math.random() * 4) + 1; diceEl.textContent = roll;
-            const newScore = Math.min(99, skill.currentScore + roll); skill.input.value = newScore;
-            resultEl.textContent = `+${roll}% Gain. New Score: ${newScore}%`; skill.checkbox.checked = false;
+            skillNameEl.textContent = `IMPROVING: ${skill.name.toUpperCase()}`; 
+            resultEl.textContent = '';
+            
+            const animationInterval = setInterval(() => { 
+                diceEl.textContent = Math.floor(Math.random() * 4) + 1; 
+            }, 100);
+            
+            await new Promise(resolve => setTimeout(resolve, 800)); 
+            clearInterval(animationInterval);
+            
+            const roll = Math.floor(Math.random() * 4) + 1; 
+            diceEl.textContent = roll;
+            
+            const newScore = Math.min(99, skill.currentScore + roll); 
+            skill.input.value = newScore;
+            
+            resultEl.textContent = `+${roll}% Gain. New Score: ${newScore}%`; 
+            skill.checkbox.checked = false;
+            
             await new Promise(resolve => setTimeout(resolve, 1200));
         }
-        document.getElementById('skill-roll-process').classList.add('hidden'); document.getElementById('skill-roll-conclusion').classList.remove('hidden'); updateRollSkillsButtonVisibility();
+        
+        document.getElementById('skill-roll-process').classList.add('hidden'); 
+        document.getElementById('skill-roll-conclusion').classList.remove('hidden'); 
+        updateRollSkillsButtonVisibility();
     }
 
     // --- SUB-SKILLS ---
-    function checkAdaptedStatus() { const violenceCount = document.querySelectorAll('#violence1:checked, #violence2:checked, #violence3:checked').length; document.getElementById('violence-adapted').classList.toggle('hidden', violenceCount < 3); const helplessnessCount = document.querySelectorAll('#helplessness1:checked, #helplessness2:checked, #helplessness3:checked').length; document.getElementById('helplessness-adapted').classList.toggle('hidden', helplessnessCount < 3); }
-    function addCraftSkill(data = {}){ const container = document.getElementById('craft-skills-container'); const item = document.createElement('div'); item.className = 'sub-skill-item'; const craftTypes = ['Gunsmith', 'Locksmith', 'Mechanic', 'Microelectronics', 'Explosives', 'Forgery']; let options = craftTypes.map(c => `<option value="${c}" ${c === data.type ? 'selected' : ''}>${c}</option>`).join(''); const scoreMax = isSkillSetupMode ? 80 : 100; item.innerHTML = `<label class="styled-checkbox"><input type="checkbox" ${data.checked ? 'checked' : ''}><span class="checkbox-visual"></span></label><div class="skill-label-input"><select>${options}</select><input type="number" min="0" max="${scoreMax}" value="${data.score || 0}"></div><button class="remove-btn" onclick="this.parentElement.remove(); updateSkillPointsCounter();">X</button>`; container.appendChild(item); setupTooltips(); updateSkillPointsCounter(); }
-    function addLanguageSkill(data = {}){ const container = document.getElementById('language-skills-container'); const item = document.createElement('div'); item.className = 'sub-skill-item'; const scoreMax = isSkillSetupMode ? 80 : 100; item.innerHTML = `<label class="styled-checkbox"><input type="checkbox" ${data.checked ? 'checked' : ''}><span class="checkbox-visual"></span></label><div class="skill-label-input"><input type="text" placeholder="Language" value="${data.lang || ''}"><input type="number" min="0" max="${scoreMax}" value="${data.score || 0}"></div><button class="remove-btn" onclick="this.parentElement.remove(); updateSkillPointsCounter();">X</button>`; container.appendChild(item); updateSkillPointsCounter(); }
-    function addBond(data = {}) { const container = document.getElementById('bonds-container'); const item = document.createElement('div'); item.className = 'bond-item'; item.innerHTML = `<input type="text" placeholder="Bond Name (e.g., Spouse)" value="${data.name || ''}"><select class="bond-score"></select>`; container.appendChild(item); updateBondScores(); if(data.score) item.querySelector('.bond-score').value = data.score; }
+    function checkAdaptedStatus() { 
+        const violenceCount = document.querySelectorAll('#violence1:checked, #violence2:checked, #violence3:checked').length; 
+        document.getElementById('violence-adapted').classList.toggle('hidden', violenceCount < 3); 
+        const helplessnessCount = document.querySelectorAll('#helplessness1:checked, #helplessness2:checked, #helplessness3:checked').length; 
+        document.getElementById('helplessness-adapted').classList.toggle('hidden', helplessnessCount < 3); 
+    }
+    
+    function addCraftSkill(data = {}){ 
+        const container = document.getElementById('craft-skills-container'); 
+        const item = document.createElement('div'); 
+        item.className = 'sub-skill-item'; 
+        const craftTypes = ['Gunsmith', 'Locksmith', 'Mechanic', 'Microelectronics', 'Explosives', 'Forgery']; 
+        let options = craftTypes.map(c => `<option value="${c}" ${c === data.type ? 'selected' : ''}>${c}</option>`).join(''); 
+        const scoreMax = isSkillSetupMode ? 80 : 100; 
+        item.innerHTML = `<label class="styled-checkbox"><input type="checkbox" ${data.checked ? 'checked' : ''}><span class="checkbox-visual"></span></label><div class="skill-label-input"><select>${options}</select><input type="number" min="0" max="${scoreMax}" value="${data.score || 0}"></div><button class="remove-btn" onclick="this.parentElement.remove(); updateSkillPointsCounter();">X</button>`; 
+        container.appendChild(item); 
+        setupTooltips(); 
+        updateSkillPointsCounter(); 
+    }
+    
+    function addLanguageSkill(data = {}){ 
+        const container = document.getElementById('language-skills-container'); 
+        const item = document.createElement('div'); 
+        item.className = 'sub-skill-item'; 
+        const scoreMax = isSkillSetupMode ? 80 : 100; 
+        item.innerHTML = `<label class="styled-checkbox"><input type="checkbox" ${data.checked ? 'checked' : ''}><span class="checkbox-visual"></span></label><div class="skill-label-input"><input type="text" placeholder="Language" value="${data.lang || ''}"><input type="number" min="0" max="${scoreMax}" value="${data.score || 0}"></div><button class="remove-btn" onclick="this.parentElement.remove(); updateSkillPointsCounter();">X</button>`; 
+        container.appendChild(item); 
+        updateSkillPointsCounter(); 
+    }
+    
+    function addBond(data = {}) { 
+        const container = document.getElementById('bonds-container'); 
+        const item = document.createElement('div'); 
+        item.className = 'bond-item'; 
+        item.innerHTML = `<input type="text" placeholder="Bond Name (e.g., Spouse)" value="${data.name || ''}"><select class="bond-score"></select>`; 
+        container.appendChild(item); 
+        updateBondScores(); 
+        if(data.score) item.querySelector('.bond-score').value = data.score; 
+    }
+    
     function updateBondSlots() {
         const cha = parseInt(document.getElementById('CHA').value) || 0;
         const maxBonds = Math.max(1, Math.min(5, Math.floor(cha / 4)));
@@ -850,81 +1414,202 @@
             for(let i=0; i < currentBonds.length - maxBonds; i++) container.querySelector('.bond-item:last-child').remove();
         }
     }
-    function updateBondScores() { const cha = parseInt(document.getElementById('CHA').value) || 0; document.querySelectorAll('.bond-score').forEach(select => { const currentScore = select.value; let options = ''; for (let i = 0; i <= cha; i++) { options += `<option value="${i}">${i}</option>`; } select.innerHTML = options; select.value = Math.min(currentScore, cha); }); }
+    
+    function updateBondScores() { 
+        const cha = parseInt(document.getElementById('CHA').value) || 0; 
+        document.querySelectorAll('.bond-score').forEach(select => { 
+            const currentScore = select.value; 
+            let options = ''; 
+            for (let i = 0; i <= cha; i++) { 
+                options += `<option value="${i}">${i}</option>`; 
+            } 
+            select.innerHTML = options; 
+            select.value = Math.min(currentScore, cha); 
+        }); 
+    }
     
     // --- WEAPONS ---
-    function addDefaultUnarmed() { const unarmedPreset = weaponPresets["Melee Weapons"][0]; addWeapon(unarmedPreset); }
+    function addDefaultUnarmed() { 
+        const unarmedPreset = weaponPresets["Melee Weapons"][0]; 
+        addWeapon(unarmedPreset); 
+    }
+    
     function getCalculatedSkill(skillIdentifier) {
         if (!skillIdentifier) return 20;
         const get = (id, fallback) => parseInt(document.getElementById(id)?.value) || fallback;
         switch(skillIdentifier) {
-            case 'Unarmed Combat': return get('skill-Unarmed-Combat', 40); case 'Melee Weapons': return get('skill-Melee-Weapons', 30); case 'DEX*5': return (get('DEX', 10) * 5); case 'Firearms': return get('skill-Firearms', 20); case 'Athletics': return get('skill-Athletics', 30); case 'Athletics+20': return Math.min(99, get('skill-Athletics', 30) + 20); case 'Heavy Weapons': return get('skill-Heavy-Weapons', 10);
-            case 'Science': const scienceSkills = ['skill-science-biology', 'skill-science-chemistry', 'skill-science-mathematics', 'skill-science-physics']; return Math.max(...scienceSkills.map(id => get(id, 0)), 10);
+            case 'Unarmed Combat': return get('skill-Unarmed-Combat', 40); 
+            case 'Melee Weapons': return get('skill-Melee-Weapons', 30); 
+            case 'DEX*5': return (get('DEX', 10) * 5); 
+            case 'Firearms': return get('skill-Firearms', 20); 
+            case 'Athletics': return get('skill-Athletics', 30); 
+            case 'Athletics+20': return Math.min(99, get('skill-Athletics', 30) + 20); 
+            case 'Heavy Weapons': return get('skill-Heavy-Weapons', 10);
+            case 'Science': 
+                const scienceSkills = ['skill-science-biology', 'skill-science-chemistry', 'skill-science-mathematics', 'skill-science-physics']; 
+                return Math.max(...scienceSkills.map(id => get(id, 0)), 10);
             default: return parseInt(skillIdentifier) || 20;
         }
     }
+    
     function updateLinkedWeaponStats() {
         document.querySelectorAll('#weapons-body tr').forEach(row => {
-            const skillIdentifier = row.dataset.skillIdentifier; if (!skillIdentifier) return;
-            const newSkillValue = getCalculatedSkill(skillIdentifier); const skillInput = row.cells[1].querySelector('input'); if (skillInput) skillInput.value = newSkillValue;
-            const baseDamage = row.dataset.baseDamage, damageInput = row.cells[3].querySelector('input');
+            const skillIdentifier = row.dataset.skillIdentifier; 
+            if (!skillIdentifier) return;
+            const newSkillValue = getCalculatedSkill(skillIdentifier); 
+            const skillInput = row.cells[1].querySelector('input'); 
+            if (skillInput) skillInput.value = newSkillValue;
+            const baseDamage = row.dataset.baseDamage;
+            const damageInput = row.cells[3].querySelector('input');
             if ((skillIdentifier === 'Unarmed Combat' || skillIdentifier === 'Melee Weapons') && baseDamage && damageInput) {
-                let bonus = 0; if (newSkillValue > 90) bonus = 3; else if (newSkillValue > 75) bonus = 2; else if (newSkillValue > 50) bonus = 1;
-                if (bonus > 0) damageInput.value = `${baseDamage.split(/[-+]/)[0].trim()}+${bonus}`; else damageInput.value = baseDamage;
+                let bonus = 0; 
+                if (newSkillValue > 90) bonus = 3; 
+                else if (newSkillValue > 75) bonus = 2; 
+                else if (newSkillValue > 50) bonus = 1;
+                if (bonus > 0) damageInput.value = `${baseDamage.split(/[-+]/)[0].trim()}+${bonus}`; 
+                else damageInput.value = baseDamage;
             }
         });
     }
+    
     function addWeapon(preset, closeModal = false) {
         const newRow = document.getElementById('weapons-body').insertRow();
         const data = { name: '', skill: '', range: '', dmg: '', ap: '', lethality: '', ammoC: '', ammoM: '', ...preset };
         if (data.skillIdentifier) data.skill = getCalculatedSkill(data.skillIdentifier);
-        newRow.dataset.skillIdentifier = data.skillIdentifier || ''; newRow.dataset.baseDamage = data.dmg || '';
+        newRow.dataset.skillIdentifier = data.skillIdentifier || ''; 
+        newRow.dataset.baseDamage = data.dmg || '';
         newRow.innerHTML = `<td><input type="text" value="${data.name}"></td><td><input type="number" min="0" max="99" value="${data.skill}"></td><td><div class="input-group"><input type="number" min="0" value="${data.range}"><span class="input-group-addon">m</span></div></td><td><input type="text" value="${data.dmg}"></td><td><input type="text" value="${data.ap}"></td><td><div class="input-group"><input type="number" min="0" max="100" value="${data.lethality}"><span class="input-group-addon">%</span></div></td><td class="ammo-cell"><div class="derived-attr-input"><input type="number" min="0" value="${data.ammoC || ''}"> / <input type="number" min="0" value="${data.ammoM || ''}"></div></td><td><button type="button" class="remove-btn" onclick="this.closest('tr').remove()">X</button></td>`;
         if (closeModal) closeWeaponModal();
         updateLinkedWeaponStats();
     }
 
     // --- MODALS ---
-    function openWeaponModal() { document.getElementById('weapon-preset-modal').classList.remove('hidden'); populateWeaponPresets(); }
-    function closeWeaponModal() { document.getElementById('weapon-preset-modal').classList.add('hidden'); }
-    function populateWeaponCategories() { const select = document.getElementById('weapon-category-select'); select.innerHTML = Object.keys(weaponPresets).map(cat => `<option value="${cat}">${cat.toUpperCase()}</option>`).join(''); }
+    function openWeaponModal() { 
+        document.getElementById('weapon-preset-modal').classList.remove('hidden'); 
+        populateWeaponPresets(); 
+    }
+    
+    function closeWeaponModal() { 
+        document.getElementById('weapon-preset-modal').classList.add('hidden'); 
+    }
+    
+    function populateWeaponCategories() { 
+        const select = document.getElementById('weapon-category-select'); 
+        select.innerHTML = Object.keys(weaponPresets).map(cat => `<option value="${cat}">${cat.toUpperCase()}</option>`).join(''); 
+    }
+    
     function populateWeaponPresets() {
-        const category = document.getElementById('weapon-category-select').value, list = document.getElementById('weapon-preset-list');
-        if (!weaponPresets[category]) { list.innerHTML = ''; return; }
-        list.innerHTML = weaponPresets[category].map(preset => `<li class="preset-item"><div class="preset-info"><h4>${preset.name} <span class="expense-tag">(${preset.expense})</span></h4>${preset.desc ? `<p>${preset.desc}</p>` : ''}${preset.examples ? `<small>${preset.examples}</small>` : ''}</div><button onclick='addWeapon(${JSON.stringify(preset)}, true)'>SELECT</button></li>`).join('');
+        const category = document.getElementById('weapon-category-select').value;
+        const list = document.getElementById('weapon-preset-list');
+        if (!weaponPresets[category]) { 
+            list.innerHTML = ''; 
+            return; 
+        }
+        list.innerHTML = weaponPresets[category].map(preset => 
+            `<li class="preset-item"><div class="preset-info"><h4>${preset.name} <span class="expense-tag">(${preset.expense})</span></h4>${preset.desc ? `<p>${preset.desc}</p>` : ''}${preset.examples ? `<small>${preset.examples}</small>` : ''}</div><button onclick='addWeapon(${JSON.stringify(preset)}, true)'>SELECT</button></li>`
+        ).join('');
     }
-    function toggleArmor() { if (isArmorActive) deactivateArmor(); else openArmorModal(); }
-    function openArmorModal() { populateArmorPresets(); document.getElementById('armor-modal').classList.remove('hidden'); }
-    function closeArmorModal() { document.getElementById('armor-modal').classList.add('hidden'); }
+    
+    function toggleArmor() { 
+        if (isArmorActive) deactivateArmor(); 
+        else openArmorModal(); 
+    }
+    
+    function openArmorModal() { 
+        populateArmorPresets(); 
+        document.getElementById('armor-modal').classList.remove('hidden'); 
+    }
+    
+    function closeArmorModal() { 
+        document.getElementById('armor-modal').classList.add('hidden'); 
+    }
+    
     function populateArmorPresets() {
-        const list = document.getElementById('armor-preset-list'), helmetCheckbox = document.getElementById('helmet-checkbox');
-        list.innerHTML = armorPresets.map(preset => `<li class="preset-item" data-is-bomb-suit="${preset.isBombSuit}"><div class="preset-info"><h4>${preset.name} <span class="expense-tag">(AP: ${preset.ap})</span></h4><p>${preset.desc}</p></div><button onclick='selectArmor(${preset.ap}, ${preset.isBombSuit})'>SELECT</button></li>`).join('');
-        document.querySelectorAll('#armor-preset-list .preset-item').forEach(item => { item.addEventListener('mouseover', () => { const isBombSuit = item.getAttribute('data-is-bomb-suit') === 'true'; if (isBombSuit) { helmetCheckbox.checked = false; helmetCheckbox.disabled = true; } else { helmetCheckbox.disabled = false; } }); });
+        const list = document.getElementById('armor-preset-list');
+        const helmetCheckbox = document.getElementById('helmet-checkbox');
+        list.innerHTML = armorPresets.map(preset => 
+            `<li class="preset-item" data-is-bomb-suit="${preset.isBombSuit}"><div class="preset-info"><h4>${preset.name} <span class="expense-tag">(AP: ${preset.ap})</span></h4><p>${preset.desc}</p></div><button onclick='selectArmor(${preset.ap}, ${preset.isBombSuit})'>SELECT</button></li>`
+        ).join('');
+        document.querySelectorAll('#armor-preset-list .preset-item').forEach(item => { 
+            item.addEventListener('mouseover', () => { 
+                const isBombSuit = item.getAttribute('data-is-bomb-suit') === 'true'; 
+                if (isBombSuit) { 
+                    helmetCheckbox.checked = false; 
+                    helmetCheckbox.disabled = true; 
+                } else { 
+                    helmetCheckbox.disabled = false; 
+                } 
+            }); 
+        });
     }
+    
     function selectArmor(baseAP, isBombSuit) {
-        const helmetCheckbox = document.getElementById('helmet-checkbox'); let totalAP = baseAP;
+        const helmetCheckbox = document.getElementById('helmet-checkbox'); 
+        let totalAP = baseAP;
         if (helmetCheckbox.checked && !isBombSuit) totalAP += 1;
-        isArmorActive = true; currentArmorPoints = totalAP; const apInput = document.getElementById('armor-points'), armorBtn = document.getElementById('armor-btn');
-        apInput.value = totalAP; apInput.classList.remove('hidden'); apInput.classList.add('armor-active'); armorBtn.classList.add('armor-active'); closeArmorModal();
+        isArmorActive = true; 
+        currentArmorPoints = totalAP; 
+        const apInput = document.getElementById('armor-points');
+        const armorBtn = document.getElementById('armor-btn');
+        apInput.value = totalAP; 
+        apInput.classList.remove('hidden'); 
+        apInput.classList.add('armor-active'); 
+        armorBtn.classList.add('armor-active'); 
+        closeArmorModal();
     }
+    
     function deactivateArmor() {
-        isArmorActive = false; currentArmorPoints = 0; const apInput = document.getElementById('armor-points'), armorBtn = document.getElementById('armor-btn'), helmetCheckbox = document.getElementById('helmet-checkbox');
-        apInput.value = 0; apInput.classList.add('hidden'); apInput.classList.remove('armor-active'); armorBtn.classList.remove('armor-active'); helmetCheckbox.checked = false; helmetCheckbox.disabled = false;
+        isArmorActive = false; 
+        currentArmorPoints = 0; 
+        const apInput = document.getElementById('armor-points');
+        const armorBtn = document.getElementById('armor-btn');
+        const helmetCheckbox = document.getElementById('helmet-checkbox');
+        apInput.value = 0; 
+        apInput.classList.add('hidden'); 
+        apInput.classList.remove('armor-active'); 
+        armorBtn.classList.remove('armor-active'); 
+        helmetCheckbox.checked = false; 
+        helmetCheckbox.disabled = false;
     }
+    
     function validateArmorPoints(event) {
-        const input = event.target; let value = parseInt(input.value, 10);
+        const input = event.target; 
+        let value = parseInt(input.value, 10);
         if (isNaN(value) || value < 0) value = currentArmorPoints;
-        if (value > currentArmorPoints) input.value = currentArmorPoints; else currentArmorPoints = value;
+        if (value > currentArmorPoints) input.value = currentArmorPoints; 
+        else currentArmorPoints = value;
         if (currentArmorPoints <= 0) deactivateArmor();
     }
 
     // --- SAVE/LOAD ---
     function gatherData() {
-        const getVal = id => document.getElementById(id).value; const getNum = id => parseInt(getVal(id)) || 0; const getChecked = id => document.getElementById(id).checked;
-        const skillsData = {}; document.querySelectorAll('#skills-container input[type="number"]').forEach(i => { const cb = document.getElementById(`check-${i.id}`); skillsData[i.id] = { score: i.value, checked: cb ? cb.checked : false }; });
-        const craftSkills = Array.from(document.querySelectorAll('#craft-skills-container .sub-skill-item')).map(item => ({ type: item.querySelector('select').value, score: item.querySelector('input[type="number"]').value, checked: item.querySelector('input[type="checkbox"]').checked }));
-        const languageSkills = Array.from(document.querySelectorAll('#language-skills-container .sub-skill-item')).map(item => ({ lang: item.querySelector('input[type="text"]').value, score: item.querySelector('input[type="number"]').value, checked: item.querySelector('input[type="checkbox"]').checked }));
-        const bonds = Array.from(document.querySelectorAll('#bonds-container .bond-item')).map(item => ({ name: item.querySelector('input[type="text"]').value, score: item.querySelector('.bond-score').value }));
+        const getVal = id => document.getElementById(id).value; 
+        const getNum = id => parseInt(getVal(id)) || 0; 
+        const getChecked = id => document.getElementById(id).checked;
+        
+        const skillsData = {}; 
+        document.querySelectorAll('#skills-container input[type="number"]').forEach(i => { 
+            const cb = document.getElementById(`check-${i.id}`); 
+            skillsData[i.id] = { score: i.value, checked: cb ? cb.checked : false }; 
+        });
+        
+        const craftSkills = Array.from(document.querySelectorAll('#craft-skills-container .sub-skill-item')).map(item => ({ 
+            type: item.querySelector('select').value, 
+            score: item.querySelector('input[type="number"]').value, 
+            checked: item.querySelector('input[type="checkbox"]').checked 
+        }));
+        
+        const languageSkills = Array.from(document.querySelectorAll('#language-skills-container .sub-skill-item')).map(item => ({ 
+            lang: item.querySelector('input[type="text"]').value, 
+            score: item.querySelector('input[type="number"]').value, 
+            checked: item.querySelector('input[type="checkbox"]').checked 
+        }));
+        
+        const bonds = Array.from(document.querySelectorAll('#bonds-container .bond-item')).map(item => ({ 
+            name: item.querySelector('input[type="text"]').value, 
+            score: item.querySelector('.bond-score').value 
+        }));
+        
         const weapons = Array.from(document.querySelectorAll('#weapons-body tr')).map(row => {
             const i = row.querySelectorAll('input');
             return {
@@ -932,40 +1617,174 @@
                 skillIdentifier: row.dataset.skillIdentifier, baseDamage: row.dataset.baseDamage
             };
         });
-        // Note: 'team' removed from gatherData
-        return { id: getVal('character-id'), fullName: getVal('full-name'), branch: getVal('branch'), rank: getVal('rank'), sex: getVal('sex'), dob: getVal('dob'), nationality: getVal('nationality'), employer: getVal('employer'), education: getVal('education'), stats: { STR: getNum('STR'), DEX: getNum('DEX'), CON: getNum('CON'), INT: getNum('INT'), POW: getNum('POW'), CHA: getNum('CHA') }, hpCurrent: getNum('hp-current'), wpCurrent: getNum('wp-current'), sanCurrent: getNum('san-current'), isArmorActive: isArmorActive, currentArmorPoints: currentArmorPoints, psych: { violence1: getChecked('violence1'), violence2: getChecked('violence2'), violence3: getChecked('violence3'), helplessness1: getChecked('helplessness1'), helplessness2: getChecked('helplessness2'), helplessness3: getChecked('helplessness3'), }, skillsData, craftSkills, languageSkills, bonds, weapons, gear: getVal('gear'), notes: getVal('notes-field'), isSkillSetupMode: isSkillSetupMode, branchRankLocked: getChecked('lock-branch-rank-checkbox'), };
+        
+        return { 
+            id: getVal('character-id'), 
+            fullName: getVal('full-name'), 
+            branch: getVal('branch'), 
+            rank: getVal('rank'), 
+            sex: getVal('sex'), 
+            dob: getVal('dob'), 
+            nationality: getVal('nationality'), 
+            employer: getVal('employer'), 
+            education: getVal('education'), 
+            stats: { STR: getNum('STR'), DEX: getNum('DEX'), CON: getNum('CON'), INT: getNum('INT'), POW: getNum('POW'), CHA: getNum('CHA') }, 
+            hpCurrent: getNum('hp-current'), 
+            wpCurrent: getNum('wp-current'), 
+            sanCurrent: getNum('san-current'), 
+            isArmorActive: isArmorActive, 
+            currentArmorPoints: currentArmorPoints, 
+            psych: { 
+                violence1: getChecked('violence1'), 
+                violence2: getChecked('violence2'), 
+                violence3: getChecked('violence3'), 
+                helplessness1: getChecked('helplessness1'), 
+                helplessness2: getChecked('helplessness2'), 
+                helplessness3: getChecked('helplessness3'), 
+            }, 
+            skillsData, 
+            craftSkills, 
+            languageSkills, 
+            bonds, 
+            weapons, 
+            gear: getVal('gear'), 
+            notes: getVal('notes-field'), 
+            isSkillSetupMode: isSkillSetupMode, 
+            branchRankLocked: getChecked('lock-branch-rank-checkbox'), 
+        };
     }
     
     function loadCharacter(data) {
         resetForm();
-        const setVal = (id, val) => { if(document.getElementById(id)) document.getElementById(id).value = val; }; const setChecked = (id, val) => { if(document.getElementById(id)) document.getElementById(id).checked = val; };
-        setVal('character-id', data.id || `char_${Date.now()}`); setVal('full-name', data.fullName); setVal('branch', data.branch); updateRanks(); setVal('rank', data.rank);
-        Object.keys(data).forEach(key => setVal(key.replace(/[A-Z]/g, m => '-' + m.toLowerCase()), data[key]));
+        const setVal = (id, val) => { if(document.getElementById(id)) document.getElementById(id).value = val; }; 
+        const setChecked = (id, val) => { if(document.getElementById(id)) document.getElementById(id).checked = val; };
+        
+        setVal('character-id', data.id || `char_${Date.now()}`); 
+        setVal('full-name', data.fullName); 
+        setVal('branch', data.branch); 
+        updateRanks(); 
+        setVal('rank', data.rank);
+        setVal('sex', data.sex);
+        setVal('dob', data.dob);
+        setVal('nationality', data.nationality);
+        setVal('employer', data.employer);
+        setVal('education', data.education);
+        setVal('gear', data.gear);
+        setVal('notes-field', data.notes);
+        
         for (const stat in data.stats) setVal(stat, data.stats[stat]);
         updateAllCalculations(); 
-        setVal('hp-current', data.hpCurrent); setVal('wp-current', data.wpCurrent); setVal('san-current', data.sanCurrent);
-        if (data.isArmorActive) { selectArmor(data.currentArmorPoints, false); closeArmorModal(); }
-        for (const key in data.psych) setChecked(key, data.psych[key]); checkAdaptedStatus();
-        document.querySelectorAll('#bonds-container .bond-item').forEach((item, index) => { if (data.bonds && data.bonds[index]) { item.querySelector('input[type="text"]').value = data.bonds[index].name; item.querySelector('.bond-score').value = data.bonds[index].score; } });
-        document.getElementById('weapons-body').innerHTML = ''; data.weapons.forEach(weaponData => addWeapon(weaponData));
-        for (const id in data.skillsData) { setVal(id, data.skillsData[id].score); setChecked(`check-${id}`, data.skillsData[id].checked); }
-        data.craftSkills.forEach(craftData => addCraftSkill(craftData)); data.languageSkills.forEach(languageData => addLanguageSkill(languageData));
-        isSkillSetupMode = data.isSkillSetupMode !== false; setSkillInputMax(isSkillSetupMode ? 80 : 100);
-        setChecked('lock-branch-rank-checkbox', data.branchRankLocked); updateBranchRankLockState();
-        updateSkillPointsCounter(); updateRollSkillsButtonVisibility();
-        showView('character-sheet'); isFormDirty = false;
+        setVal('hp-current', data.hpCurrent); 
+        setVal('wp-current', data.wpCurrent); 
+        setVal('san-current', data.sanCurrent);
+        
+        if (data.isArmorActive) { 
+            selectArmor(data.currentArmorPoints, false); 
+            closeArmorModal(); 
+        }
+        
+        for (const key in data.psych) setChecked(key, data.psych[key]); 
+        checkAdaptedStatus();
+        
+        document.querySelectorAll('#bonds-container .bond-item').forEach((item, index) => { 
+            if (data.bonds && data.bonds[index]) { 
+                item.querySelector('input[type="text"]').value = data.bonds[index].name; 
+                item.querySelector('.bond-score').value = data.bonds[index].score; 
+            } 
+        });
+        
+        document.getElementById('weapons-body').innerHTML = ''; 
+        data.weapons.forEach(weaponData => addWeapon(weaponData));
+        
+        for (const id in data.skillsData) { 
+            setVal(id, data.skillsData[id].score); 
+            setChecked(`check-${id}`, data.skillsData[id].checked); 
+        }
+        
+        data.craftSkills.forEach(craftData => addCraftSkill(craftData)); 
+        data.languageSkills.forEach(languageData => addLanguageSkill(languageData));
+        
+        isSkillSetupMode = data.isSkillSetupMode !== false; 
+        setSkillInputMax(isSkillSetupMode ? 80 : 100);
+        setChecked('lock-branch-rank-checkbox', data.branchRankLocked); 
+        updateBranchRankLockState();
+        updateSkillPointsCounter(); 
+        updateRollSkillsButtonVisibility();
+        showView('character-sheet'); 
+        isFormDirty = false;
     }
     
-    function saveCharacter() { const data = gatherData(); if (!data.fullName) { alert("Subject Name is required."); return; } localStorage.setItem(data.id, JSON.stringify(data)); alert(`DOSSIER: ${data.fullName.toUpperCase()} UPDATED.`); loadSavedSheets(); isFormDirty = false; }
-    function exportToJson() { const data = gatherData(); if (!data.fullName) { alert("Subject Name is required."); return; } const blob = new Blob([JSON.stringify(data, null, 2)], {type: 'application/json'}); const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `AOTD_${data.fullName.replace(/[^\w\s]/gi, '').replace(/ /g, '_')}.json`; a.click(); URL.revokeObjectURL(a.href); a.remove(); isFormDirty = false; }
-    function loadCharacterFromFile(event) { const file = event.target.files[0]; if (!file) return; const reader = new FileReader(); reader.onload = e => { try { loadCharacter(JSON.parse(e.target.result)); } catch (err) { alert("Corrupt file."); console.error(err); } }; reader.readAsText(file); event.target.value = null; }
-    function loadSavedSheets() {
-        const list = document.getElementById('saved-sheets-list'); list.innerHTML = '';
-        const sheets = Object.keys(localStorage).filter(key => key.startsWith('char_')).map(key => JSON.parse(localStorage.getItem(key))).filter(data => data && data.id && data.fullName);
-        if (sheets.length === 0) { list.innerHTML = '<li>NO LOCAL RECORDS FOUND</li>'; } else { sheets.forEach(sheet => { const li = document.createElement('li'); li.innerHTML = `<span>${sheet.fullName.toUpperCase()}</span><div><button onclick="loadCharacterFromStorage('${sheet.id}')">LOAD</button><button class="remove-btn" onclick="deleteSheet('${sheet.id}', '${sheet.fullName.replace(/'/g, "\\'")}')">DELETE</button></div>`; list.appendChild(li); }); }
+    function saveCharacter() { 
+        const data = gatherData(); 
+        if (!data.fullName) { 
+            alert("Subject Name is required."); 
+            return; 
+        } 
+        localStorage.setItem(data.id, JSON.stringify(data)); 
+        alert(`DOSSIER: ${data.fullName.toUpperCase()} UPDATED.`); 
+        loadSavedSheets(); 
+        isFormDirty = false; 
     }
-    function loadCharacterFromStorage(id) { if(isFormDirty && !confirm("Current session data will be lost. Proceed?")) return; const dataString = localStorage.getItem(id); if (dataString) loadCharacter(JSON.parse(dataString)); }
-    function deleteSheet(id, name) { if (confirm(`Purge record for ${name}? This cannot be undone.`)) { localStorage.removeItem(id); loadSavedSheets(); } }
+    
+    function exportToJson() { 
+        const data = gatherData(); 
+        if (!data.fullName) { 
+            alert("Subject Name is required."); 
+            return; 
+        } 
+        const blob = new Blob([JSON.stringify(data, null, 2)], {type: 'application/json'}); 
+        const a = document.createElement('a'); 
+        a.href = URL.createObjectURL(blob); 
+        a.download = `AOTD_${data.fullName.replace(/[^\w\s]/gi, '').replace(/ /g, '_')}.json`; 
+        a.click(); 
+        URL.revokeObjectURL(a.href); 
+        a.remove(); 
+        isFormDirty = false; 
+    }
+    
+    function loadCharacterFromFile(event) { 
+        const file = event.target.files[0]; 
+        if (!file) return; 
+        const reader = new FileReader(); 
+        reader.onload = e => { 
+            try { 
+                loadCharacter(JSON.parse(e.target.result)); 
+            } catch (err) { 
+                alert("Corrupt file."); 
+                console.error(err); 
+            } 
+        }; 
+        reader.readAsText(file); 
+        event.target.value = null; 
+    }
+    
+    function loadSavedSheets() {
+        const list = document.getElementById('saved-sheets-list'); 
+        list.innerHTML = '';
+        const sheets = Object.keys(localStorage).filter(key => key.startsWith('char_')).map(key => JSON.parse(localStorage.getItem(key))).filter(data => data && data.id && data.fullName);
+        if (sheets.length === 0) { 
+            list.innerHTML = '<li>NO LOCAL RECORDS FOUND</li>'; 
+        } else { 
+            sheets.forEach(sheet => { 
+                const li = document.createElement('li'); 
+                li.innerHTML = `<span>${sheet.fullName.toUpperCase()}</span><div><button onclick="loadCharacterFromStorage('${sheet.id}')">LOAD</button><button class="remove-btn" onclick="deleteSheet('${sheet.id}', '${sheet.fullName.replace(/'/g, "\\'")}')">DELETE</button></div>`; 
+                list.appendChild(li); 
+            }); 
+        }
+    }
+    
+    function loadCharacterFromStorage(id) { 
+        if(isFormDirty && !confirm("Current session data will be lost. Proceed?")) return; 
+        const dataString = localStorage.getItem(id); 
+        if (dataString) loadCharacter(JSON.parse(dataString)); 
+    }
+    
+    function deleteSheet(id, name) { 
+        if (confirm(`Purge record for ${name}? This cannot be undone.`)) { 
+            localStorage.removeItem(id); 
+            loadSavedSheets(); 
+        } 
+    }
 
 </script>
 
