@@ -1,0 +1,3811 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Afraid of the Dark - Combat Manager</title>
+    <link rel="icon" type="image/png" href="https://media.discordapp.net/attachments/1461536234034827537/1461536301856592004/AOTD_logo_1.png?ex=696ae940&is=696997c0&hm=b81f1cf08ec65edd2805a22716ab8d38d798ea7cb42f8a7098f26813fe1378e6&=&format=webp&quality=lossless">
+    text
+
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-database-compat.js"></script>
+    <!-- Screenshot library -->
+    <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+
+    <style>
+        /* === CORE THEME === */
+        @keyframes flicker { 0%, 100% { opacity: 0.97; } 50% { opacity: 1; } }
+        @keyframes pulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.05); } }
+        @keyframes glow { 0%, 100% { box-shadow: 0 0 5px var(--active-glow); } 50% { box-shadow: 0 0 20px var(--active-glow), 0 0 30px var(--active-glow); } }
+        @keyframes shake { 0%, 100% { transform: translateX(0); } 25% { transform: translateX(-5px); } 75% { transform: translateX(5px); } }
+        @keyframes slideIn { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes criticalPulse { 0%, 100% { background-color: var(--danger-color); } 50% { background-color: #ff0000; } }
+
+        :root {
+            --bg-color: #0a0a0a;
+            --scanline-color: rgba(255, 255, 255, 0.02);
+            --text-color: #d0d0d0;
+            --accent-color: #ffffff;
+            --border-color: #333333;
+            --input-bg: #141414;
+            --danger-color: #a30000;
+            --danger-bg: rgba(100, 0, 0, 0.15);
+            --success-color: #00aa00;
+            --warning-color: #ffaa00;
+            --container-bg: rgba(15, 15, 15, 0.95);
+            --active-glow: #00f3ff;
+            --enemy-color: #ff4444;
+            --ally-color: #44ff44;
+            --npc-color: #ffaa44;
+            --player-color: #4488ff;
+        }
+
+        body.theme-dark { --bg-color: #0a0a0a; --text-color: #d0d0d0; --accent-color: #ffffff; --border-color: #333333; --input-bg: #141414; --container-bg: rgba(15, 15, 15, 0.95); }
+        body.theme-terminal { --bg-color: #0a0f0a; --text-color: #00ff00; --accent-color: #00ff00; --border-color: #003300; --input-bg: #0a1a0a; --danger-color: #ff3300; --container-bg: rgba(10, 20, 10, 0.95); --active-glow: #00ff00; }
+        body.theme-crimson { --bg-color: #0f0808; --text-color: #e0c0c0; --accent-color: #ff4444; --border-color: #442222; --input-bg: #1a0a0a; --danger-color: #ff0000; --container-bg: rgba(20, 10, 10, 0.95); --active-glow: #ff4444; }
+        body.theme-light { --bg-color: #f0f0f0; --scanline-color: rgba(0, 0, 0, 0.02); --text-color: #1a1a1a; --accent-color: #000000; --border-color: #cccccc; --input-bg: #ffffff; --danger-color: #cc0000; --danger-bg: rgba(200, 0, 0, 0.1); --container-bg: rgba(255, 255, 255, 0.95); }
+        body.theme-highcontrast { --bg-color: #000000; --text-color: #ffffff; --accent-color: #ffff00; --border-color: #ffffff; --input-bg: #000000; --danger-color: #ff0000; --danger-bg: rgba(255, 0, 0, 0.2); --container-bg: #000000; }
+
+        body.reduce-motion, body.reduce-motion * { animation: none !important; transition: none !important; }
+        body.large-text { font-size: 18px; }
+        body.xlarge-text { font-size: 22px; }
+
+        body {
+            font-family: 'Courier New', Courier, monospace;
+            margin: 0;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            animation: flicker 0.2s infinite;
+            overflow-x: hidden;
+            min-height: 100vh;
+        }
+
+        body::before {
+            content: " "; display: block; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background-image: linear-gradient(0deg, var(--scanline-color) 1px, transparent 1px);
+            background-size: 100% 3px; z-index: 1000; pointer-events: none;
+        }
+
+        body.no-scanlines::before { display: none; }
+
+        .hidden { display: none !important; }
+
+        /* === LAYOUT === */
+        .container {
+            max-width: 1600px;
+            margin: 0 auto;
+            padding: 10px;
+        }
+
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px 15px;
+            border-bottom: 2px solid var(--border-color);
+            margin-bottom: 15px;
+            background: var(--container-bg);
+        }
+
+        .header-left {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .header-logo { height: 40px; filter: invert(1) brightness(0.8); }
+        body.theme-light .header-logo { filter: none; }
+
+        .header h1 {
+            font-size: 16px;
+            letter-spacing: 3px;
+            margin: 0;
+            color: var(--accent-color);
+        }
+
+        .header-right {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        /* === BUTTONS === */
+        button, .button {
+            background: rgba(255,255,255,0.05);
+            color: var(--text-color);
+            border: 1px solid var(--border-color);
+            padding: 6px 12px;
+            font-size: 12px;
+            cursor: pointer;
+            font-family: 'Courier New', Courier, monospace;
+            text-transform: uppercase;
+            transition: all 0.2s;
+            white-space: nowrap;
+        }
+
+        button:hover:not(:disabled) { background: var(--text-color); color: var(--bg-color); border-color: var(--accent-color); }
+        button:disabled { cursor: not-allowed; opacity: 0.3; }
+        button.btn-danger { border-color: var(--danger-color); color: var(--danger-color); }
+        button.btn-danger:hover { background: var(--danger-color); color: #fff; }
+        button.btn-success { border-color: var(--success-color); color: var(--success-color); }
+        button.btn-success:hover { background: var(--success-color); color: #000; }
+        button.btn-warning { border-color: var(--warning-color); color: var(--warning-color); }
+        button.btn-warning:hover { background: var(--warning-color); color: #000; }
+        button.btn-primary { border-color: var(--active-glow); color: var(--active-glow); }
+        button.btn-primary:hover { background: var(--active-glow); color: #000; }
+        button.btn-large { padding: 10px 20px; font-size: 14px; }
+
+        /* === INPUTS === */
+        input, select, textarea {
+            background-color: #000;
+            color: var(--text-color);
+            border: 1px solid var(--border-color);
+            padding: 6px 10px;
+            font-family: 'Courier New', Courier, monospace;
+            font-size: 13px;
+        }
+
+        body.theme-light input, body.theme-light select, body.theme-light textarea { background-color: #fff; }
+        input:focus, select:focus, textarea:focus { border-color: var(--accent-color); outline: none; }
+        input[type="number"] { width: 60px; text-align: center; }
+        input[type="number"].small { width: 45px; }
+
+        label {
+            font-size: 11px;
+            color: #888;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+            display: block;
+            margin-bottom: 3px;
+        }
+
+        /* === MAIN LAYOUT === */
+        .combat-layout {
+            display: grid;
+            grid-template-columns: 280px 1fr 320px;
+            gap: 15px;
+            min-height: calc(100vh - 100px);
+        }
+
+        @media (max-width: 1200px) {
+            .combat-layout { grid-template-columns: 1fr; }
+            .sidebar-left, .sidebar-right { order: 2; }
+            .main-area { order: 1; }
+        }
+
+        .sidebar-left, .sidebar-right, .main-area {
+            background: var(--container-bg);
+            border: 1px solid var(--border-color);
+            display: flex;
+            flex-direction: column;
+        }
+
+        .panel-header {
+            padding: 10px 15px;
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: rgba(0,0,0,0.3);
+        }
+
+        .panel-header h2 {
+            font-size: 13px;
+            margin: 0;
+            letter-spacing: 2px;
+            color: var(--accent-color);
+        }
+
+        .panel-content {
+            padding: 10px;
+            flex: 1;
+            overflow-y: auto;
+        }
+
+        /* === COMBAT STATUS BAR === */
+        .combat-status-bar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 10px 15px;
+            background: linear-gradient(90deg, rgba(0,243,255,0.1) 0%, transparent 100%);
+            border-bottom: 1px solid var(--border-color);
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+
+        .combat-info {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+        }
+
+        .combat-info-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .combat-info-item .label { font-size: 11px; color: #666; }
+        .combat-info-item .value { font-size: 16px; font-weight: bold; color: var(--accent-color); }
+
+        .round-counter {
+            font-size: 24px;
+            font-weight: bold;
+            color: var(--active-glow);
+            text-shadow: 0 0 10px var(--active-glow);
+        }
+
+        /* === INITIATIVE TRACKER === */
+        .initiative-list {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+
+        .initiative-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 10px;
+            background: var(--input-bg);
+            border: 1px solid var(--border-color);
+            transition: all 0.2s;
+            cursor: pointer;
+        }
+
+        .initiative-item:hover { border-color: var(--text-color); }
+
+        .initiative-item.active {
+            border-color: var(--active-glow);
+            background: rgba(0, 243, 255, 0.1);
+            animation: glow 2s infinite;
+        }
+
+        .initiative-item.dead {
+            opacity: 0.3;
+            text-decoration: line-through;
+        }
+
+        .initiative-item.delayed {
+            opacity: 0.6;
+            border-style: dashed;
+        }
+
+        .init-order {
+            width: 24px;
+            height: 24px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: var(--border-color);
+            font-weight: bold;
+            font-size: 12px;
+        }
+
+        .init-type-indicator {
+            width: 4px;
+            height: 100%;
+            min-height: 30px;
+            flex-shrink: 0;
+        }
+
+        .init-type-indicator.player { background: var(--player-color); }
+        .init-type-indicator.enemy { background: var(--enemy-color); }
+        .init-type-indicator.ally { background: var(--ally-color); }
+        .init-type-indicator.npc { background: var(--npc-color); }
+
+        .init-info { flex: 1; min-width: 0; }
+        .init-name { font-weight: bold; font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .init-stats { font-size: 11px; color: #888; display: flex; gap: 10px; margin-top: 2px; }
+
+        .init-value {
+            font-size: 18px;
+            font-weight: bold;
+            color: var(--accent-color);
+            min-width: 30px;
+            text-align: center;
+        }
+
+        .init-actions {
+            display: flex;
+            gap: 3px;
+        }
+
+        .init-actions button {
+            padding: 3px 6px;
+            font-size: 10px;
+        }
+
+        /* === COMBATANT CARDS === */
+        .combatant-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 15px;
+            padding: 15px;
+        }
+
+        .combatant-card {
+            background: var(--input-bg);
+            border: 2px solid var(--border-color);
+            padding: 0;
+            transition: all 0.3s;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .combatant-card.active {
+            border-color: var(--active-glow);
+            box-shadow: 0 0 20px rgba(0, 243, 255, 0.3);
+        }
+
+        .combatant-card.dead {
+            opacity: 0.4;
+            filter: grayscale(80%);
+        }
+
+        .combatant-card.player { border-left: 4px solid var(--player-color); }
+        .combatant-card.enemy { border-left: 4px solid var(--enemy-color); }
+        .combatant-card.ally { border-left: 4px solid var(--ally-color); }
+        .combatant-card.npc { border-left: 4px solid var(--npc-color); }
+
+        .card-header {
+            padding: 10px 12px;
+            background: rgba(0,0,0,0.4);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .card-name {
+            font-weight: bold;
+            font-size: 14px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .card-name input {
+            background: transparent;
+            border: none;
+            border-bottom: 1px dashed var(--border-color);
+            color: var(--text-color);
+            font-weight: bold;
+            font-size: 14px;
+            width: 150px;
+        }
+
+        .card-type-badge {
+            font-size: 9px;
+            padding: 2px 6px;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+        }
+
+        .card-type-badge.player { background: var(--player-color); color: #000; }
+        .card-type-badge.enemy { background: var(--enemy-color); color: #000; }
+        .card-type-badge.ally { background: var(--ally-color); color: #000; }
+        .card-type-badge.npc { background: var(--npc-color); color: #000; }
+
+        .card-body { padding: 12px; }
+
+        /* Health/Stats Bars */
+        .stat-bars {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin-bottom: 12px;
+        }
+
+        .stat-bar-container {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .stat-bar-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 11px;
+        }
+
+        .stat-bar-header .label { color: #888; }
+        .stat-bar-header .value { font-weight: bold; }
+
+        .stat-bar {
+            height: 8px;
+            background: #222;
+            border: 1px solid var(--border-color);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .stat-bar-fill {
+            height: 100%;
+            transition: width 0.3s, background-color 0.3s;
+        }
+
+        .stat-bar-fill.hp { background: linear-gradient(90deg, #00aa00, #44ff44); }
+        .stat-bar-fill.hp.critical { background: linear-gradient(90deg, #aa0000, #ff4444); animation: criticalPulse 1s infinite; }
+        .stat-bar-fill.hp.wounded { background: linear-gradient(90deg, #aa6600, #ffaa00); }
+        .stat-bar-fill.wp { background: linear-gradient(90deg, #0066aa, #44aaff); }
+        .stat-bar-fill.san { background: linear-gradient(90deg, #6600aa, #aa44ff); }
+        .stat-bar-fill.armor { background: linear-gradient(90deg, #666666, #aaaaaa); }
+
+        .stat-inputs {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            margin-top: 4px;
+        }
+
+        .stat-inputs input {
+            width: 40px;
+            text-align: center;
+            padding: 4px;
+            font-size: 12px;
+        }
+
+        .stat-inputs span { color: #666; }
+
+        /* Attributes Grid */
+        .attributes-grid {
+            display: grid;
+            grid-template-columns: repeat(6, 1fr);
+            gap: 5px;
+            margin-bottom: 12px;
+            padding: 8px;
+            background: rgba(0,0,0,0.3);
+            border: 1px solid var(--border-color);
+        }
+
+        .attr-item {
+            text-align: center;
+        }
+
+        .attr-label {
+            font-size: 9px;
+            color: #666;
+            letter-spacing: 1px;
+        }
+
+        .attr-value {
+            font-size: 14px;
+            font-weight: bold;
+        }
+
+        .attr-x5 {
+            font-size: 10px;
+            color: #888;
+        }
+
+        /* Skills Section */
+        .skills-section {
+            margin-bottom: 12px;
+        }
+
+        .skills-compact {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+        }
+
+        .skill-tag {
+            font-size: 10px;
+            padding: 3px 8px;
+            background: var(--border-color);
+            border: 1px solid #444;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .skill-tag .skill-value {
+            font-weight: bold;
+            color: var(--accent-color);
+        }
+
+        /* Weapons Section */
+        .weapons-section {
+            margin-bottom: 12px;
+        }
+
+        .weapon-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 6px 8px;
+            background: rgba(0,0,0,0.3);
+            border: 1px solid var(--border-color);
+            margin-bottom: 4px;
+            font-size: 11px;
+        }
+
+        .weapon-name { font-weight: bold; flex: 1; }
+        .weapon-stat { color: #888; }
+        .weapon-stat strong { color: var(--accent-color); }
+
+        .weapon-actions {
+            display: flex;
+            gap: 3px;
+        }
+
+        .weapon-actions button {
+            padding: 2px 6px;
+            font-size: 9px;
+        }
+
+        /* Status Effects */
+        .status-effects {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 4px;
+            margin-bottom: 10px;
+        }
+
+        .status-tag {
+            font-size: 9px;
+            padding: 2px 6px;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .status-tag.negative { background: var(--danger-color); color: #fff; }
+        .status-tag.positive { background: var(--success-color); color: #000; }
+        .status-tag.neutral { background: var(--warning-color); color: #000; }
+
+        .status-tag .remove-status {
+            cursor: pointer;
+            font-weight: bold;
+            margin-left: 4px;
+        }
+
+        /* Card Actions */
+        .card-actions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 4px;
+            padding-top: 10px;
+            border-top: 1px solid var(--border-color);
+        }
+
+        .card-actions button {
+            flex: 1;
+            min-width: 60px;
+            padding: 5px 8px;
+            font-size: 10px;
+        }
+
+        /* === ACTION PANEL === */
+        .action-panel {
+            background: rgba(0,0,0,0.4);
+            border: 1px solid var(--border-color);
+            margin-bottom: 15px;
+        }
+
+        .action-panel-header {
+            padding: 10px 15px;
+            background: rgba(0,243,255,0.1);
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .action-panel-header h3 {
+            margin: 0;
+            font-size: 12px;
+            letter-spacing: 2px;
+            color: var(--active-glow);
+        }
+
+        .action-buttons {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
+            gap: 8px;
+            padding: 15px;
+        }
+
+        .action-btn {
+            padding: 12px 10px;
+            text-align: center;
+            font-size: 11px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .action-btn .icon {
+            font-size: 20px;
+        }
+
+        /* === COMBAT LOG === */
+        .combat-log {
+            flex: 1;
+            overflow-y: auto;
+            max-height: 400px;
+        }
+
+        .log-entry {
+            padding: 8px 10px;
+            border-bottom: 1px solid var(--border-color);
+            font-size: 12px;
+            line-height: 1.5;
+            animation: slideIn 0.3s ease;
+        }
+
+        .log-entry.round-marker {
+            background: rgba(0,243,255,0.1);
+            text-align: center;
+            font-weight: bold;
+            color: var(--active-glow);
+            letter-spacing: 2px;
+        }
+
+        .log-entry.attack { border-left: 3px solid var(--danger-color); }
+        .log-entry.damage { border-left: 3px solid #ff6600; }
+        .log-entry.heal { border-left: 3px solid var(--success-color); }
+        .log-entry.status { border-left: 3px solid var(--warning-color); }
+        .log-entry.move { border-left: 3px solid var(--player-color); }
+        .log-entry.system { border-left: 3px solid #888; color: #888; }
+
+        .log-timestamp {
+            font-size: 10px;
+            color: #555;
+            margin-right: 8px;
+        }
+
+        .log-actor { font-weight: bold; color: var(--accent-color); }
+        .log-target { color: var(--warning-color); }
+        .log-roll { color: var(--active-glow); font-weight: bold; }
+        .log-damage { color: var(--danger-color); font-weight: bold; }
+        .log-success { color: var(--success-color); }
+        .log-failure { color: var(--danger-color); }
+        .log-critical { color: #ff00ff; font-weight: bold; text-transform: uppercase; }
+
+        /* === QUICK ADD PANEL === */
+        .quick-add-section {
+            margin-top: 10px;
+            padding-top: 10px;
+            border-top: 1px solid var(--border-color);
+        }
+
+        .template-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 5px;
+            margin-top: 10px;
+        }
+
+        .template-btn {
+            padding: 8px;
+            font-size: 10px;
+            text-align: left;
+        }
+
+        .template-btn .template-name { font-weight: bold; display: block; }
+        .template-btn .template-stats { font-size: 9px; color: #888; }
+
+        /* === DICE ROLLER === */
+        .dice-roller {
+            background: var(--input-bg);
+            border: 1px solid var(--border-color);
+            padding: 15px;
+            margin-bottom: 10px;
+        }
+
+        .dice-roller h4 {
+            margin: 0 0 10px 0;
+            font-size: 11px;
+            letter-spacing: 1px;
+            color: #888;
+        }
+
+        .dice-buttons {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+            margin-bottom: 10px;
+        }
+
+        .dice-result {
+            text-align: center;
+            padding: 15px;
+            background: rgba(0,0,0,0.4);
+            border: 1px solid var(--border-color);
+        }
+
+        .dice-result .result-value {
+            font-size: 36px;
+            font-weight: bold;
+            color: var(--accent-color);
+        }
+
+        .dice-result .result-breakdown {
+            font-size: 12px;
+            color: #888;
+            margin-top: 5px;
+        }
+
+        /* === MODALS === */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.9);
+            z-index: 500;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+            box-sizing: border-box;
+        }
+
+        .modal-content {
+            background: var(--bg-color);
+            border: 2px solid var(--accent-color);
+            padding: 20px;
+            max-width: 600px;
+            width: 100%;
+            max-height: 90vh;
+            overflow-y: auto;
+            box-shadow: 0 0 50px rgba(0,0,0,0.8);
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .modal-header h2 {
+            margin: 0;
+            font-size: 16px;
+            letter-spacing: 2px;
+        }
+
+        .form-row {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+
+        .form-group {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+
+        .form-group input, .form-group select, .form-group textarea {
+            width: 100%;
+            box-sizing: border-box;
+        }
+
+        /* === LETHALITY ROLL DISPLAY === */
+        .lethality-display {
+            text-align: center;
+            padding: 20px;
+            background: rgba(255,0,0,0.1);
+            border: 2px solid var(--danger-color);
+            margin: 10px 0;
+        }
+
+        .lethality-display .lethality-title {
+            font-size: 14px;
+            color: var(--danger-color);
+            letter-spacing: 2px;
+            margin-bottom: 10px;
+        }
+
+        .lethality-display .lethality-roll {
+            font-size: 48px;
+            font-weight: bold;
+        }
+
+        .lethality-display .lethality-result {
+            font-size: 18px;
+            margin-top: 10px;
+            letter-spacing: 3px;
+        }
+
+        .lethality-display .lethality-result.killed { color: var(--danger-color); }
+        .lethality-display .lethality-result.survived { color: var(--success-color); }
+
+        .lethality-display .lethality-damage {
+            font-size: 14px;
+            color: #888;
+            margin-top: 5px;
+        }
+
+        /* === CONNECTION STATUS === */
+        .connection-badge {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            font-size: 11px;
+            padding: 4px 8px;
+            border: 1px solid var(--border-color);
+        }
+
+        .connection-badge.connected { border-color: var(--success-color); color: var(--success-color); }
+        .connection-badge.disconnected { border-color: var(--danger-color); color: var(--danger-color); }
+        .connection-badge.connecting { border-color: var(--warning-color); color: var(--warning-color); }
+
+        .connection-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: currentColor;
+        }
+
+        /* === PLAYER VIEW MODE === */
+        .player-mode .admin-only { display: none !important; }
+        .player-mode .combatant-card:not(.active):not([data-owner="player"]) { opacity: 0.6; }
+        .player-mode .combatant-card:not([data-owner="player"]) .card-actions { display: none; }
+        .player-mode .combatant-card:not([data-owner="player"]) input { pointer-events: none; }
+
+        /* === SHARE LINK === */
+        .share-link-container {
+            display: flex;
+            gap: 5px;
+            align-items: center;
+        }
+
+        .share-link-container input {
+            flex: 1;
+            font-size: 11px;
+            padding: 6px 10px;
+        }
+
+        /* === LOADING === */
+        .loading-overlay {
+            position: fixed;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            background: var(--bg-color);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 600;
+        }
+
+        .loading-spinner {
+            width: 60px;
+            height: 60px;
+            border: 3px solid var(--border-color);
+            border-top-color: var(--active-glow);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        .loading-text {
+            margin-top: 20px;
+            letter-spacing: 3px;
+            animation: blink 1s infinite;
+        }
+
+        @keyframes blink { 0%, 50% { opacity: 1; } 51%, 100% { opacity: 0.3; } }
+
+        /* === SCREENSHOT AREA === */
+        #screenshot-area {
+            background: var(--bg-color);
+        }
+
+        /* === RESPONSIVE === */
+        @media (max-width: 768px) {
+            .combat-layout { grid-template-columns: 1fr; }
+            .header { flex-direction: column; gap: 10px; }
+            .header-right { flex-wrap: wrap; justify-content: center; }
+            .combatant-grid { grid-template-columns: 1fr; }
+            .attributes-grid { grid-template-columns: repeat(3, 1fr); }
+            .action-buttons { grid-template-columns: repeat(3, 1fr); }
+        }
+    </style>
+</head>
+<body class="theme-dark">
+    text
+
+    <!-- Loading Overlay -->
+    <div id="loading-overlay" class="loading-overlay">
+        <div class="loading-spinner"></div>
+        <div class="loading-text">INITIALIZING COMBAT SYSTEM...</div>
+    </div>
+
+    <div class="container">
+        <!-- Header -->
+        <header class="header">
+            <div class="header-left">
+                <img src="https://media.discordapp.net/attachments/1461536234034827537/1461536301856592004/AOTD_logo_1.png" alt="AOTD" class="header-logo">
+                <h1>COMBAT MANAGER</h1>
+            </div>
+            <div class="header-right">
+                <div id="connection-badge" class="connection-badge connecting">
+                    <span class="connection-dot"></span>
+                    <span>CONNECTING</span>
+                </div>
+
+                <button onclick="window.location.href='index.html'">← TERMINAL</button>
+
+                <div class="admin-only">
+                    <button onclick="openSettingsModal()">⚙ SETTINGS</button>
+                    <button onclick="screenshotCombat()" class="btn-primary">📷 SCREENSHOT</button>
+                </div>
+
+                <button id="admin-login-btn" onclick="toggleAdminMode()">ADMIN LOGIN</button>
+            </div>
+        </header>
+
+        <!-- Combat Status Bar -->
+        <div class="combat-status-bar" id="combat-status-bar">
+            <div class="combat-info">
+                <div class="combat-info-item">
+                    <span class="label">ROUND</span>
+                    <span class="round-counter" id="round-counter">1</span>
+                </div>
+                <div class="combat-info-item">
+                    <span class="label">PHASE</span>
+                    <span class="value" id="combat-phase">SETUP</span>
+                </div>
+                <div class="combat-info-item">
+                    <span class="label">ACTIVE</span>
+                    <span class="value" id="active-combatant-name">---</span>
+                </div>
+            </div>
+            <div class="combat-controls admin-only">
+                <button onclick="startCombat()" id="start-combat-btn" class="btn-success btn-large">▶ START COMBAT</button>
+                <button onclick="nextTurn()" id="next-turn-btn" class="btn-primary btn-large" disabled>NEXT TURN →</button>
+                <button onclick="previousTurn()" class="btn-warning" disabled id="prev-turn-btn">← PREV</button>
+                <button onclick="newRound()" class="btn-warning">NEW ROUND</button>
+                <button onclick="endCombat()" class="btn-danger">END COMBAT</button>
+            </div>
+        </div>
+
+        <!-- Main Layout -->
+        <div class="combat-layout" id="screenshot-area">
+            <!-- Left Sidebar: Initiative Order -->
+            <aside class="sidebar-left">
+                <div class="panel-header">
+                    <h2>INITIATIVE ORDER</h2>
+                    <button class="admin-only" onclick="rollAllInitiative()" style="font-size:10px;padding:4px 8px;">ROLL ALL</button>
+                </div>
+                <div class="panel-content">
+                    <div class="initiative-list" id="initiative-list">
+                        <!-- Initiative items will be rendered here -->
+                        <div class="empty-state" style="text-align:center;padding:20px;color:#555;">
+                            No combatants added
+                        </div>
+                    </div>
+
+                    <!-- Quick Add Section -->
+                    <div class="quick-add-section admin-only">
+                        <label>QUICK ADD</label>
+                        <div style="display:flex;gap:5px;margin-bottom:10px;">
+                            <button onclick="openAddCombatantModal('player')" class="btn-primary" style="flex:1;">+ PLAYER</button>
+                            <button onclick="openAddCombatantModal('enemy')" class="btn-danger" style="flex:1;">+ ENEMY</button>
+                        </div>
+
+                        <label>ENEMY TEMPLATES</label>
+                        <div class="template-grid" id="enemy-templates">
+                            <!-- Templates will be rendered here -->
+                        </div>
+                    </div>
+                </div>
+            </aside>
+
+            <!-- Main Area: Combatant Cards -->
+            <main class="main-area">
+                <div class="panel-header">
+                    <h2>COMBATANTS</h2>
+                    <div class="admin-only" style="display:flex;gap:5px;">
+                        <button onclick="openAddCombatantModal('player')">+ ADD</button>
+                        <button onclick="clearAllCombatants()" class="btn-danger">CLEAR ALL</button>
+                    </div>
+                </div>
+
+                <!-- Active Combatant Action Panel -->
+                <div class="action-panel admin-only" id="action-panel">
+                    <div class="action-panel-header">
+                        <h3>ACTIONS FOR: <span id="action-panel-name">---</span></h3>
+                        <span id="action-panel-type" class="card-type-badge">---</span>
+                    </div>
+                    <div class="action-buttons">
+                        <button class="action-btn" onclick="performAction('attack')">
+                            <span class="icon">⚔️</span>
+                            <span>ATTACK</span>
+                        </button>
+                        <button class="action-btn" onclick="performAction('aim')">
+                            <span class="icon">🎯</span>
+                            <span>AIM</span>
+                        </button>
+                        <button class="action-btn" onclick="performAction('dodge')">
+                            <span class="icon">💨</span>
+                            <span>DODGE</span>
+                        </button>
+                        <button class="action-btn" onclick="performAction('move')">
+                            <span class="icon">🏃</span>
+                            <span>MOVE</span>
+                        </button>
+                        <button class="action-btn" onclick="performAction('fightback')">
+                            <span class="icon">🤺</span>
+                            <span>FIGHT BACK</span>
+                        </button>
+                        <button class="action-btn" onclick="performAction('disarm')">
+                            <span class="icon">🖐️</span>
+                            <span>DISARM</span>
+                        </button>
+                        <button class="action-btn" onclick="performAction('reload')">
+                            <span class="icon">🔄</span>
+                            <span>RELOAD</span>
+                        </button>
+                        <button class="action-btn" onclick="performAction('firstaid')">
+                            <span class="icon">🩹</span>
+                            <span>FIRST AID</span>
+                        </button>
+                        <button class="action-btn" onclick="performAction('called')">
+                            <span class="icon">🎪</span>
+                            <span>CALLED SHOT</span>
+                        </button>
+                        <button class="action-btn" onclick="performAction('pin')">
+                            <span class="icon">📍</span>
+                            <span>PIN</span>
+                        </button>
+                        <button class="action-btn" onclick="performAction('delay')">
+                            <span class="icon">⏸️</span>
+                            <span>DELAY</span>
+                        </button>
+                        <button class="action-btn" onclick="performAction('other')">
+                            <span class="icon">❓</span>
+                            <span>OTHER</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Combatant Cards Grid -->
+                <div class="combatant-grid" id="combatant-grid">
+                    <!-- Combatant cards will be rendered here -->
+                </div>
+            </main>
+
+            <!-- Right Sidebar: Combat Log & Dice -->
+            <aside class="sidebar-right">
+                <div class="panel-header">
+                    <h2>COMBAT LOG</h2>
+                    <button onclick="clearLog()" style="font-size:10px;padding:4px 8px;" class="admin-only">CLEAR</button>
+                </div>
+                <div class="panel-content" style="display:flex;flex-direction:column;">
+                    <!-- Dice Roller -->
+                    <div class="dice-roller">
+                        <h4>DICE ROLLER</h4>
+                        <div class="dice-buttons">
+                            <button onclick="rollDice('1d4')">D4</button>
+                            <button onclick="rollDice('1d6')">D6</button>
+                            <button onclick="rollDice('1d8')">D8</button>
+                            <button onclick="rollDice('1d10')">D10</button>
+                            <button onclick="rollDice('1d12')">D12</button>
+                            <button onclick="rollDice('1d20')">D20</button>
+                            <button onclick="rollDice('1d100')">D100</button>
+                            <button onclick="rollDice('2d6')">2D6</button>
+                            <button onclick="openCustomRollModal()">CUSTOM</button>
+                        </div>
+                        <div class="dice-result" id="dice-result">
+                            <div class="result-value">--</div>
+                            <div class="result-breakdown"></div>
+                        </div>
+                    </div>
+
+                    <!-- Log Entries -->
+                    <div class="combat-log" id="combat-log">
+                        <div class="log-entry system">
+                            <span class="log-timestamp">[SYSTEM]</span>
+                            Combat Manager initialized. Waiting for combatants...
+                        </div>
+                    </div>
+                </div>
+            </aside>
+        </div>
+    </div>
+
+    <!-- Add/Edit Combatant Modal -->
+    <div id="combatant-modal" class="modal-overlay hidden">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="combatant-modal-title">ADD COMBATANT</h2>
+                <button onclick="closeCombatantModal()">✕ CLOSE</button>
+            </div>
+
+            <form id="combatant-form" onsubmit="return false;">
+                <input type="hidden" id="combatant-id">
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>NAME</label>
+                        <input type="text" id="comb-name" placeholder="Enter name..." required>
+                    </div>
+                    <div class="form-group">
+                        <label>TYPE</label>
+                        <select id="comb-type">
+                            <option value="player">PLAYER</option>
+                            <option value="enemy">ENEMY</option>
+                            <option value="ally">ALLY</option>
+                            <option value="npc">NPC</option>
+                        </select>
+                    </div>
+                </div>
+
+                <h4 style="margin:15px 0 10px;font-size:12px;color:#888;border-bottom:1px solid var(--border-color);padding-bottom:5px;">ATTRIBUTES</h4>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>STR</label>
+                        <input type="number" id="comb-str" value="10" min="1" max="20">
+                    </div>
+                    <div class="form-group">
+                        <label>DEX</label>
+                        <input type="number" id="comb-dex" value="10" min="1" max="20">
+                    </div>
+                    <div class="form-group">
+                        <label>CON</label>
+                        <input type="number" id="comb-con" value="10" min="1" max="20">
+                    </div>
+                    <div class="form-group">
+                        <label>INT</label>
+                        <input type="number" id="comb-int" value="10" min="1" max="20">
+                    </div>
+                    <div class="form-group">
+                        <label>POW</label>
+                        <input type="number" id="comb-pow" value="10" min="1" max="20">
+                    </div>
+                    <div class="form-group">
+                        <label>CHA</label>
+                        <input type="number" id="comb-cha" value="10" min="1" max="20">
+                    </div>
+                </div>
+
+                <h4 style="margin:15px 0 10px;font-size:12px;color:#888;border-bottom:1px solid var(--border-color);padding-bottom:5px;">DERIVED STATS</h4>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>HP CURRENT</label>
+                        <input type="number" id="comb-hp" value="10" min="0">
+                    </div>
+                    <div class="form-group">
+                        <label>HP MAX</label>
+                        <input type="number" id="comb-hp-max" value="10" min="1">
+                    </div>
+                    <div class="form-group">
+                        <label>WP CURRENT</label>
+                        <input type="number" id="comb-wp" value="10" min="0">
+                    </div>
+                    <div class="form-group">
+                        <label>WP MAX</label>
+                        <input type="number" id="comb-wp-max" value="10" min="1">
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>ARMOR</label>
+                        <input type="number" id="comb-armor" value="0" min="0">
+                    </div>
+                    <div class="form-group">
+                        <label>SANITY</label>
+                        <input type="number" id="comb-san" value="50" min="0" max="99">
+                    </div>
+                    <div class="form-group">
+                        <label>INITIATIVE BONUS</label>
+                        <input type="number" id="comb-init-bonus" value="0">
+                    </div>
+                </div>
+
+                <h4 style="margin:15px 0 10px;font-size:12px;color:#888;border-bottom:1px solid var(--border-color);padding-bottom:5px;">COMBAT SKILLS</h4>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>FIREARMS</label>
+                        <input type="number" id="comb-firearms" value="20" min="0" max="99">
+                    </div>
+                    <div class="form-group">
+                        <label>MELEE</label>
+                        <input type="number" id="comb-melee" value="30" min="0" max="99">
+                    </div>
+                    <div class="form-group">
+                        <label>UNARMED</label>
+                        <input type="number" id="comb-unarmed" value="40" min="0" max="99">
+                    </div>
+                    <div class="form-group">
+                        <label>DODGE</label>
+                        <input type="number" id="comb-dodge" value="30" min="0" max="99">
+                    </div>
+                    <div class="form-group">
+                        <label>ATHLETICS</label>
+                        <input type="number" id="comb-athletics" value="30" min="0" max="99">
+                    </div>
+                    <div class="form-group">
+                        <label>ALERTNESS</label>
+                        <input type="number" id="comb-alertness" value="20" min="0" max="99">
+                    </div>
+                </div>
+
+                <h4 style="margin:15px 0 10px;font-size:12px;color:#888;border-bottom:1px solid var(--border-color);padding-bottom:5px;">WEAPONS</h4>
+                <div id="comb-weapons-list">
+                    <!-- Weapon entries will be added here -->
+                </div>
+                <button type="button" onclick="addWeaponToForm()" style="margin-top:10px;">+ ADD WEAPON</button>
+
+                <h4 style="margin:15px 0 10px;font-size:12px;color:#888;border-bottom:1px solid var(--border-color);padding-bottom:5px;">NOTES</h4>
+                <div class="form-group">
+                    <textarea id="comb-notes" rows="3" placeholder="Special abilities, conditions, etc..."></textarea>
+                </div>
+
+                <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:20px;padding-top:15px;border-top:1px solid var(--border-color);">
+                    <button type="button" onclick="closeCombatantModal()">CANCEL</button>
+                    <button type="button" onclick="saveCombatant()" class="btn-success">SAVE COMBATANT</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Attack Modal -->
+    <div id="attack-modal" class="modal-overlay hidden">
+        <div class="modal-content" style="max-width:500px;">
+            <div class="modal-header">
+                <h2>⚔️ ATTACK</h2>
+                <button onclick="closeAttackModal()">✕ CLOSE</button>
+            </div>
+
+            <div class="form-group">
+                <label>ATTACKER</label>
+                <input type="text" id="attack-attacker-name" readonly>
+            </div>
+
+            <div class="form-group">
+                <label>SELECT TARGET</label>
+                <select id="attack-target" style="width:100%;">
+                    <option value="">-- Select Target --</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label>WEAPON</label>
+                <select id="attack-weapon" style="width:100%;" onchange="updateAttackSkill()">
+                    <option value="">-- Select Weapon --</option>
+                </select>
+            </div>
+
+            <div class="form-row">
+                <div class="form-group">
+                    <label>BASE SKILL</label>
+                    <input type="number" id="attack-skill" value="40">
+                </div>
+                <div class="form-group">
+                    <label>MODIFIERS</label>
+                    <input type="number" id="attack-modifier" value="0">
+                </div>
+                <div class="form-group">
+                    <label>FINAL SKILL</label>
+                    <input type="number" id="attack-final-skill" readonly>
+                </div>
+            </div>
+
+            <div class="form-row">
+                <div class="form-group">
+                    <label class="styled-checkbox" style="display:flex;align-items:center;gap:8px;margin-top:10px;">
+                        <input type="checkbox" id="attack-aimed" onchange="updateAttackModifiers()">
+                        <span style="color:var(--text-color);">AIMED (+20%)</span>
+                    </label>
+                </div>
+                <div class="form-group">
+                    <label class="styled-checkbox" style="display:flex;align-items:center;gap:8px;margin-top:10px;">
+                        <input type="checkbox" id="attack-called" onchange="updateAttackModifiers()">
+                        <span style="color:var(--text-color);">CALLED SHOT (-20%)</span>
+                    </label>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label>CALLED SHOT LOCATION</label>
+                <select id="attack-location" style="width:100%;" disabled>
+                    <option value="body">Body (Normal)</option>
+                    <option value="head">Head (Bypass Helmet)</option>
+                    <option value="limb">Limb (Disable)</option>
+                    <option value="hand">Hand (Disarm)</option>
+                    <option value="vitals">Vitals (Extra Damage)</option>
+                </select>
+            </div>
+
+            <div style="display:flex;gap:10px;justify-content:center;margin-top:20px;">
+                <button onclick="executeAttack()" class="btn-danger btn-large">🎲 ROLL ATTACK</button>
+            </div>
+
+            <div id="attack-result" class="hidden" style="margin-top:20px;padding:15px;background:rgba(0,0,0,0.4);border:1px solid var(--border-color);">
+                <!-- Attack result will be shown here -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Damage Modal -->
+    <div id="damage-modal" class="modal-overlay hidden">
+        <div class="modal-content" style="max-width:450px;">
+            <div class="modal-header">
+                <h2>💥 APPLY DAMAGE</h2>
+                <button onclick="closeDamageModal()">✕ CLOSE</button>
+            </div>
+
+            <div class="form-group">
+                <label>TARGET</label>
+                <select id="damage-target" style="width:100%;">
+                    <option value="">-- Select Target --</option>
+                </select>
+            </div>
+
+            <div class="form-row">
+                <div class="form-group">
+                    <label>DAMAGE DICE</label>
+                    <input type="text" id="damage-dice" placeholder="e.g., 1d10+2">
+                </div>
+                <div class="form-group">
+                    <label>OR FLAT DAMAGE</label>
+                    <input type="number" id="damage-flat" min="0">
+                </div>
+            </div>
+
+            <div class="form-row">
+                <div class="form-group">
+                    <label>LETHALITY %</label>
+                    <input type="number" id="damage-lethality" min="0" max="100" placeholder="0">
+                </div>
+                <div class="form-group">
+                    <label>ARMOR PIERCING</label>
+                    <input type="number" id="damage-ap" min="0" value="0">
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label class="styled-checkbox" style="display:flex;align-items:center;gap:8px;margin-top:10px;">
+                    <input type="checkbox" id="damage-bypass-armor">
+                    <span style="color:var(--text-color);">BYPASS ARMOR COMPLETELY</span>
+                </label>
+            </div>
+
+            <div class="form-group">
+                <label>DAMAGE TYPE</label>
+                <select id="damage-type" style="width:100%;">
+                    <option value="physical">Physical</option>
+                    <option value="fire">Fire/Burn</option>
+                    <option value="electric">Electric</option>
+                    <option value="poison">Poison</option>
+                    <option value="psychic">Psychic (WP)</option>
+                    <option value="san">Sanity Loss</option>
+                </select>
+            </div>
+
+            <div style="display:flex;gap:10px;justify-content:center;margin-top:20px;">
+                <button onclick="applyDamage()" class="btn-danger btn-large">💀 APPLY DAMAGE</button>
+                <button onclick="applyHealing()" class="btn-success btn-large">💚 HEAL INSTEAD</button>
+            </div>
+
+            <div id="damage-result" class="hidden" style="margin-top:20px;">
+                <!-- Damage result will be shown here -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Settings Modal -->
+    <div id="settings-modal" class="modal-overlay hidden">
+        <div class="modal-content" style="max-width:500px;">
+            <div class="modal-header">
+                <h2>⚙️ COMBAT SETTINGS</h2>
+                <button onclick="closeSettingsModal()">✕ CLOSE</button>
+            </div>
+
+            <h4 style="margin:0 0 15px;font-size:12px;color:#888;">PLAYER SHARING</h4>
+            <div class="form-group">
+                <label class="styled-checkbox" style="display:flex;align-items:center;gap:8px;">
+                    <input type="checkbox" id="setting-player-view" onchange="togglePlayerSharing()">
+                    <span style="color:var(--text-color);">ENABLE PLAYER VIEW (Share link below)</span>
+                </label>
+            </div>
+
+            <div class="share-link-container" id="share-link-container" style="margin-bottom:20px;">
+                <input type="text" id="share-link" readonly placeholder="Enable player view to generate link">
+                <button onclick="copyShareLink()">COPY</button>
+            </div>
+
+            <h4 style="margin:15px 0;font-size:12px;color:#888;border-top:1px solid var(--border-color);padding-top:15px;">DISPLAY OPTIONS</h4>
+            <div class="form-group">
+                <label class="styled-checkbox" style="display:flex;align-items:center;gap:8px;">
+                    <input type="checkbox" id="setting-show-enemy-hp" checked>
+                    <span style="color:var(--text-color);">Show enemy HP to players</span>
+                </label>
+            </div>
+            <div class="form-group">
+                <label class="styled-checkbox" style="display:flex;align-items:center;gap:8px;">
+                    <input type="checkbox" id="setting-show-enemy-stats">
+                    <span style="color:var(--text-color);">Show enemy full stats to players</span>
+                </label>
+            </div>
+            <div class="form-group">
+                <label class="styled-checkbox" style="display:flex;align-items:center;gap:8px;">
+                    <input type="checkbox" id="setting-auto-roll-init" checked>
+                    <span style="color:var(--text-color);">Auto-roll initiative on combat start</span>
+                </label>
+            </div>
+
+            <h4 style="margin:15px 0;font-size:12px;color:#888;border-top:1px solid var(--border-color);padding-top:15px;">THEME</h4>
+            <div class="form-row">
+                <button onclick="setTheme('dark')" id="theme-dark-btn" class="active">DARK</button>
+                <button onclick="setTheme('terminal')" id="theme-terminal-btn">TERMINAL</button>
+                <button onclick="setTheme('crimson')" id="theme-crimson-btn">CRIMSON</button>
+                <button onclick="setTheme('light')" id="theme-light-btn">LIGHT</button>
+            </div>
+
+            <div style="margin-top:20px;padding-top:15px;border-top:1px solid var(--border-color);">
+                <button onclick="closeSettingsModal()" class="btn-primary" style="width:100%;">CLOSE</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Custom Roll Modal -->
+    <div id="custom-roll-modal" class="modal-overlay hidden">
+        <div class="modal-content" style="max-width:400px;">
+            <div class="modal-header">
+                <h2>🎲 CUSTOM ROLL</h2>
+                <button onclick="closeCustomRollModal()">✕ CLOSE</button>
+            </div>
+
+            <div class="form-group">
+                <label>DICE EXPRESSION</label>
+                <input type="text" id="custom-dice-expr" placeholder="e.g., 2d6+5, 1d20-2, 4d6kh3">
+            </div>
+
+            <div class="form-group">
+                <label>ROLL LABEL (OPTIONAL)</label>
+                <input type="text" id="custom-roll-label" placeholder="e.g., Damage, Initiative">
+            </div>
+
+            <div style="display:flex;gap:10px;justify-content:center;margin-top:20px;">
+                <button onclick="executeCustomRoll()" class="btn-primary btn-large">🎲 ROLL</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Status Effect Modal -->
+    <div id="status-modal" class="modal-overlay hidden">
+        <div class="modal-content" style="max-width:400px;">
+            <div class="modal-header">
+                <h2>ADD STATUS EFFECT</h2>
+                <button onclick="closeStatusModal()">✕ CLOSE</button>
+            </div>
+
+            <div class="form-group">
+                <label>TARGET</label>
+                <select id="status-target" style="width:100%;">
+                    <option value="">-- Select Target --</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label>STATUS EFFECT</label>
+                <select id="status-type" style="width:100%;">
+                    <optgroup label="Negative">
+                        <option value="prone|negative">Prone</option>
+                        <option value="stunned|negative">Stunned</option>
+                        <option value="blinded|negative">Blinded</option>
+                        <option value="deafened|negative">Deafened</option>
+                        <option value="bleeding|negative">Bleeding</option>
+                        <option value="burning|negative">Burning</option>
+                        <option value="poisoned|negative">Poisoned</option>
+                        <option value="pinned|negative">Pinned</option>
+                        <option value="grappled|negative">Grappled</option>
+                        <option value="unconscious|negative">Unconscious</option>
+                        <option value="dying|negative">Dying</option>
+                        <option value="panicked|negative">Panicked</option>
+                        <option value="exhausted|negative">Exhausted</option>
+                    </optgroup>
+                    <optgroup label="Positive">
+                        <option value="aimed|positive">Aimed</option>
+                        <option value="cover|positive">In Cover</option>
+                        <option value="concealed|positive">Concealed</option>
+                        <option value="inspired|positive">Inspired</option>
+                    </optgroup>
+                    <optgroup label="Neutral">
+                        <option value="delayed|neutral">Delayed</option>
+                        <option value="reloading|neutral">Reloading</option>
+                        <option value="concentrating|neutral">Concentrating</option>
+                    </optgroup>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label>DURATION (ROUNDS, 0 = INDEFINITE)</label>
+                <input type="number" id="status-duration" value="0" min="0">
+            </div>
+
+            <div class="form-group">
+                <label>CUSTOM STATUS (OPTIONAL)</label>
+                <input type="text" id="status-custom" placeholder="Custom status name...">
+            </div>
+
+            <div style="display:flex;gap:10px;justify-content:center;margin-top:20px;">
+                <button onclick="applyStatus()" class="btn-warning btn-large">APPLY STATUS</button>
+            </div>
+        </div>
+    </div>
+    <script>
+        // ============================================================
+        // FIREBASE CONFIGURATION
+        // ============================================================
+        const firebaseConfig = {
+            // REPLACE WITH YOUR FIREBASE CONFIG
+            apiKey: "YOUR_API_KEY",
+            authDomain: "your-project.firebaseapp.com",
+            databaseURL: "https://your-project-default-rtdb.firebaseio.com",
+            projectId: "your-project",
+            storageBucket: "your-project.appspot.com",
+            messagingSenderId: "123456789",
+            appId: "1:123456789:web:abcdef123456"
+        };
+
+        const isFirebaseConfigured = firebaseConfig.apiKey !== "YOUR_API_KEY";
+
+        // ============================================================
+        // STATE MANAGEMENT
+        // ============================================================
+        const ADMIN_PASSWORD_HASH = 'dmFsa3lyaWU=';
+        let isAdmin = false;
+        let isPlayerMode = false;
+        let db = null;
+        let combatSessionId = null;
+
+        // Combat State
+        let combatState = {
+            round: 1,
+            phase: 'setup', // setup, active, ended
+            activeIndex: -1,
+            combatants: [],
+            log: [],
+            settings: {
+                playerViewEnabled: false,
+                showEnemyHp: true,
+                showEnemyStats: false,
+                autoRollInit: true
+            }
+        };
+
+        // Enemy Templates
+        const enemyTemplates = [
+            { name: "Thug", str: 12, dex: 10, con: 11, int: 8, pow: 8, cha: 8, hp: 12, armor: 0, firearms: 30, melee: 40, unarmed: 50, dodge: 30, weapons: [{name:"Fists",skill:50,dmg:"1d4",type:"unarmed"},{name:"Knife",skill:40,dmg:"1d6",ap:3,type:"melee"}] },
+            { name: "Cultist", str: 10, dex: 10, con: 10, int: 12, pow: 14, cha: 10, hp: 10, armor: 0, firearms: 25, melee: 30, unarmed: 40, dodge: 30, weapons: [{name:"Ritual Dagger",skill:30,dmg:"1d4",type:"melee"}] },
+            { name: "Guard", str: 12, dex: 11, con: 12, int: 10, pow: 10, cha: 10, hp: 12, armor: 3, firearms: 50, melee: 40, unarmed: 45, dodge: 35, weapons: [{name:"Pistol",skill:50,dmg:"1d10",type:"firearms",ammo:15},{name:"Baton",skill:40,dmg:"1d6",type:"melee"}] },
+            { name: "Soldier", str: 13, dex: 12, con: 13, int: 10, pow: 11, cha: 10, hp: 13, armor: 5, firearms: 60, melee: 50, unarmed: 55, dodge: 40, weapons: [{name:"Assault Rifle",skill:60,dmg:"1d12",ap:3,lethality:10,type:"firearms",ammo:30},{name:"Combat Knife",skill:50,dmg:"1d6",ap:3,type:"melee"}] },
+            { name: "Creature (Weak)", str: 14, dex: 12, con: 14, int: 4, pow: 10, cha: 0, hp: 14, armor: 1, firearms: 0, melee: 50, unarmed: 60, dodge: 25, weapons: [{name:"Claws",skill:60,dmg:"1d6+1",type:"unarmed"},{name:"Bite",skill:50,dmg:"1d8",type:"unarmed"}] },
+            { name: "Creature (Strong)", str: 18, dex: 10, con: 18, int: 5, pow: 12, cha: 0, hp: 18, armor: 3, firearms: 0, melee: 60, unarmed: 70, dodge: 20, weapons: [{name:"Claws",skill:70,dmg:"1d10+2",type:"unarmed"},{name:"Bite",skill:60,dmg:"1d12",type:"unarmed"}] },
+            { name: "Deep One", str: 16, dex: 12, con: 15, int: 10, pow: 12, cha: 6, hp: 16, armor: 2, firearms: 0, melee: 55, unarmed: 65, dodge: 30, weapons: [{name:"Claws",skill:65,dmg:"1d8+1",type:"unarmed"},{name:"Trident",skill:55,dmg:"1d10",type:"melee"}] },
+            { name: "Mi-Go", str: 10, dex: 16, con: 10, int: 18, pow: 14, cha: 8, hp: 10, armor: 2, firearms: 0, melee: 40, unarmed: 50, dodge: 50, weapons: [{name:"Nippers",skill:50,dmg:"1d6",type:"unarmed"},{name:"Mi-Go Weapon",skill:60,dmg:"2d6",type:"special"}] }
+        ];
+
+        // ============================================================
+        // INITIALIZATION
+        // ============================================================
+        window.onload = async () => {
+            // Check URL for player mode
+            const urlParams = new URLSearchParams(window.location.search);
+            const sessionParam = urlParams.get('session');
+            const modeParam = urlParams.get('mode');
+
+            if (sessionParam) {
+                combatSessionId = sessionParam;
+                if (modeParam === 'player') {
+                    isPlayerMode = true;
+                    document.body.classList.add('player-mode');
+                }
+            } else {
+                combatSessionId = `combat_${Date.now()}`;
+            }
+
+            loadSettings();
+            renderEnemyTemplates();
+
+            if (isFirebaseConfigured) {
+                await initFirebase();
+            } else {
+                console.warn('Firebase not configured. Using local mode.');
+                loadLocalState();
+                hideLoading();
+                updateConnectionStatus('disconnected');
+            }
+
+            setupEventListeners();
+        };
+
+        async function initFirebase() {
+            try {
+                updateConnectionStatus('connecting');
+                firebase.initializeApp(firebaseConfig);
+                db = firebase.database();
+
+                // Connection monitoring
+                db.ref('.info/connected').on('value', (snap) => {
+                    if (snap.val()) {
+                        updateConnectionStatus('connected');
+                    } else {
+                        updateConnectionStatus('disconnected');
+                    }
+                });
+
+                // Listen for combat state changes
+                db.ref(`combatSessions/${combatSessionId}`).on('value', (snapshot) => {
+                    const data = snapshot.val();
+                    if (data) {
+                        combatState = { ...combatState, ...data };
+                    }
+                    renderAll();
+                    hideLoading();
+                });
+
+            } catch (error) {
+                console.error('Firebase error:', error);
+                loadLocalState();
+                hideLoading();
+                updateConnectionStatus('disconnected');
+            }
+        }
+
+        function loadLocalState() {
+            const saved = localStorage.getItem(`aotd_combat_${combatSessionId}`);
+            if (saved) {
+                combatState = JSON.parse(saved);
+            }
+            renderAll();
+        }
+
+        function saveState() {
+            // Save locally
+            localStorage.setItem(`aotd_combat_${combatSessionId}`, JSON.stringify(combatState));
+
+            // Save to Firebase if configured
+            if (isFirebaseConfigured && db && isAdmin) {
+                db.ref(`combatSessions/${combatSessionId}`).set(combatState).catch(err => {
+                    console.error('Firebase save error:', err);
+                });
+            }
+        }
+
+        function hideLoading() {
+            document.getElementById('loading-overlay').classList.add('hidden');
+        }
+
+        function updateConnectionStatus(status) {
+            const badge = document.getElementById('connection-badge');
+            badge.className = `connection-badge ${status}`;
+            const texts = {
+                connected: 'CONNECTED',
+                disconnected: 'OFFLINE',
+                connecting: 'CONNECTING'
+            };
+            badge.querySelector('span:last-child').textContent = texts[status] || status.toUpperCase();
+        }
+
+        function setupEventListeners() {
+            // Skill/modifier input changes
+            document.getElementById('attack-skill').addEventListener('input', updateAttackFinalSkill);
+            document.getElementById('attack-modifier').addEventListener('input', updateAttackFinalSkill);
+        }
+
+        // ============================================================
+        // THEME & SETTINGS
+        // ============================================================
+        function setTheme(theme) {
+            const themes = ['dark', 'terminal', 'crimson', 'light', 'highcontrast'];
+            themes.forEach(t => document.body.classList.remove(`theme-${t}`));
+            document.body.classList.add(`theme-${theme}`);
+
+            document.querySelectorAll('[id^="theme-"][id$="-btn"]').forEach(btn => btn.classList.remove('active'));
+            const btn = document.getElementById(`theme-${theme}-btn`);
+            if (btn) btn.classList.add('active');
+
+            localStorage.setItem('aotd_combat_theme', theme);
+        }
+
+        function loadSettings() {
+            const theme = localStorage.getItem('aotd_combat_theme') || 'dark';
+            setTheme(theme);
+        }
+
+        // ============================================================
+        // ADMIN MODE
+        // ============================================================
+        function toggleAdminMode() {
+            if (isAdmin) {
+                isAdmin = false;
+                document.body.classList.remove('admin-mode');
+                document.getElementById('admin-login-btn').textContent = 'ADMIN LOGIN';
+                alert('Admin mode deactivated.');
+            } else {
+                const pass = prompt('Enter SYSTEM OVERRIDE code:');
+                if (btoa(pass) === ADMIN_PASSWORD_HASH) {
+                    isAdmin = true;
+                    isPlayerMode = false;
+                    document.body.classList.add('admin-mode');
+                    document.body.classList.remove('player-mode');
+                    document.getElementById('admin-login-btn').textContent = 'ADMIN LOGOUT';
+                    alert('Override accepted.');
+                } else if (pass) {
+                    alert('Invalid Credentials.');
+                }
+            }
+            renderAll();
+        }
+
+        // ============================================================
+        // RENDERING
+        // ============================================================
+        function renderAll() {
+            renderInitiativeList();
+            renderCombatantGrid();
+            renderCombatLog();
+            updateCombatStatusBar();
+            updateActionPanel();
+        }
+
+        function renderInitiativeList() {
+            const container = document.getElementById('initiative-list');
+
+            if (combatState.combatants.length === 0) {
+                container.innerHTML = '<div class="empty-state" style="text-align:center;padding:20px;color:#555;">No combatants added</div>';
+                return;
+            }
+
+            // Sort by initiative (descending)
+            const sorted = [...combatState.combatants]
+                .map((c, i) => ({ ...c, originalIndex: i }))
+                .sort((a, b) => (b.initiative || 0) - (a.initiative || 0));
+
+            container.innerHTML = sorted.map((c, order) => {
+                const isActive = c.originalIndex === combatState.activeIndex;
+                const isDead = c.hp <= 0;
+                const isDelayed = c.statuses?.some(s => s.name === 'delayed');
+
+                return `
+                    <div class="initiative-item ${isActive ? 'active' : ''} ${isDead ? 'dead' : ''} ${isDelayed ? 'delayed' : ''}" onclick="selectCombatant(${c.originalIndex})" data-index="${c.originalIndex}">
+                        <div class="init-order">${order + 1}</div>
+                        <div class="init-type-indicator ${c.type}"></div>
+                        <div class="init-info">
+                            <div class="init-name">${escapeHtml(c.name)}</div>
+                            <div class="init-stats">
+                                <span>HP: ${c.hp}/${c.hpMax}</span>
+                                <span>DEX: ${c.dex}</span>
+                            </div>
+                        </div>
+                        <div class="init-value">${c.initiative || '-'}</div>
+                        <div class="init-actions admin-only">
+                            <button onclick="event.stopPropagation();rollInitiativeFor(${c.originalIndex})">🎲</button>
+                            <button onclick="event.stopPropagation();setActiveByIndex(${c.originalIndex})" class="btn-primary">▶</button>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function renderCombatantGrid() {
+            const container = document.getElementById('combatant-grid');
+
+            if (combatState.combatants.length === 0) {
+                container.innerHTML = `
+                    <div style="grid-column:1/-1;text-align:center;padding:60px;color:#555;">
+                        <h3 style="margin-bottom:10px;">NO COMBATANTS</h3>
+                        <p>Add players and enemies to begin combat.</p>
+                    </div>
+                `;
+                return;
+            }
+
+            container.innerHTML = combatState.combatants.map((c, index) => {
+                const isActive = index === combatState.activeIndex;
+                const isDead = c.hp <= 0;
+                const hpPercent = Math.max(0, Math.min(100, (c.hp / c.hpMax) * 100));
+                const wpPercent = Math.max(0, Math.min(100, (c.wp / c.wpMax) * 100));
+                const hpClass = hpPercent <= 25 ? 'critical' : hpPercent <= 50 ? 'wounded' : '';
+
+                return `
+                    <div class="combatant-card ${c.type} ${isActive ? 'active' : ''} ${isDead ? 'dead' : ''}" data-index="${index}" data-owner="${c.type}">
+                        <div class="card-header">
+                            <div class="card-name">
+                                <input type="text" value="${escapeHtml(c.name)}" onchange="updateCombatantName(${index}, this.value)" ${isAdmin ? '' : 'readonly'}>
+                            </div>
+                            <span class="card-type-badge ${c.type}">${c.type.toUpperCase()}</span>
+                        </div>
+                        <div class="card-body">
+                            <!-- Status Effects -->
+                            ${c.statuses && c.statuses.length > 0 ? `
+                                <div class="status-effects">
+                                    ${c.statuses.map(s => `
+                                        <span class="status-tag ${s.type}">
+                                            ${s.name}${s.duration > 0 ? ` (${s.duration})` : ''}
+                                            <span class="remove-status admin-only" onclick="removeStatus(${index}, '${s.name}')">×</span>
+                                        </span>
+                                    `).join('')}
+                                </div>
+                            ` : ''}
+                            <!-- Stat Bars -->
+                            <div class="stat-bars">
+                                <div class="stat-bar-container">
+                                    <div class="stat-bar-header">
+                                        <span class="label">HP</span>
+                                        <span class="value">${c.hp}/${c.hpMax}</span>
+                                    </div>
+                                    <div class="stat-bar">
+                                        <div class="stat-bar-fill hp ${hpClass}" style="width:${hpPercent}%"></div>
+                                    </div>
+                                    <div class="stat-inputs admin-only">
+                                        <input type="number" value="${c.hp}" min="0" onchange="updateCombatantStat(${index}, 'hp', this.value)" class="small">
+                                        <span>/</span>
+                                        <input type="number" value="${c.hpMax}" min="1" onchange="updateCombatantStat(${index}, 'hpMax', this.value)" class="small">
+                                    </div>
+                                </div>
+                                <div class="stat-bar-container">
+                                    <div class="stat-bar-header">
+                                        <span class="label">WP</span>
+                                        <span class="value">${c.wp}/${c.wpMax}</span>
+                                    </div>
+                                    <div class="stat-bar">
+                                        <div class="stat-bar-fill wp" style="width:${wpPercent}%"></div>
+                                    </div>
+                                    <div class="stat-inputs admin-only">
+                                        <input type="number" value="${c.wp}" min="0" onchange="updateCombatantStat(${index}, 'wp', this.value)" class="small">
+                                        <span>/</span>
+                                        <input type="number" value="${c.wpMax}" min="1" onchange="updateCombatantStat(${index}, 'wpMax', this.value)" class="small">
+                                    </div>
+                                </div>
+                            </div>
+                            <!-- Armor -->
+                            ${c.armor > 0 ? `
+                                <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;padding:5px;background:rgba(255,255,255,0.05);border:1px solid var(--border-color);">
+                                    <span style="font-size:11px;color:#888;">ARMOR:</span>
+                                    <input type="number" value="${c.armor}" min="0" style="width:40px;" class="admin-only" onchange="updateCombatantStat(${index}, 'armor', this.value)">
+                                    <span class="player-visible" style="font-weight:bold;">${c.armor} AP</span>
+                                </div>
+                            ` : ''}
+                            <!-- Attributes -->
+                            <div class="attributes-grid">
+                                ${['str','dex','con','int','pow','cha'].map(attr => `
+                                    <div class="attr-item">
+                                        <div class="attr-label">${attr.toUpperCase()}</div>
+                                        <div class="attr-value">${c[attr]}</div>
+                                        <div class="attr-x5">×5: ${c[attr] * 5}</div>
+                                    </div>
+                                `).join('')}
+                            </div>
+                            <!-- Skills -->
+                            <div class="skills-section">
+                                <div class="skills-compact">
+                                    <span class="skill-tag">Firearms: <span class="skill-value">${c.firearms}%</span></span>
+                                    <span class="skill-tag">Melee: <span class="skill-value">${c.melee}%</span></span>
+                                    <span class="skill-tag">Unarmed: <span class="skill-value">${c.unarmed}%</span></span>
+                                    <span class="skill-tag">Dodge: <span class="skill-value">${c.dodge}%</span></span>
+                                </div>
+                            </div>
+                            <!-- Weapons -->
+                            ${c.weapons && c.weapons.length > 0 ? `
+                                <div class="weapons-section">
+                                    ${c.weapons.map((w, wi) => `
+                                        <div class="weapon-item">
+                                            <span class="weapon-name">${escapeHtml(w.name)}</span>
+                                            <span class="weapon-stat">Skill: <strong>${w.skill}%</strong></span>
+                                            <span class="weapon-stat">Dmg: <strong>${w.dmg}</strong></span>
+                                            ${w.lethality ? `<span class="weapon-stat">Leth: <strong>${w.lethality}%</strong></span>` : ''}
+                                            ${w.ammo !== undefined ? `<span class="weapon-stat">Ammo: <strong>${w.ammo}</strong></span>` : ''}
+                                            <div class="weapon-actions admin-only">
+                                                <button onclick="quickAttackWith(${index}, ${wi})" class="btn-danger">ATK</button>
+                                            </div>
+                                        </div>
+                                    `).join('')}
+                                </div>
+                            ` : ''}
+                            <!-- Card Actions -->
+                            <div class="card-actions">
+                                <button onclick="openAttackModalFor(${index})" class="btn-danger">⚔️ ATTACK</button>
+                                <button onclick="openDamageModalFor(${index})" class="btn-warning">💥 DAMAGE</button>
+                                <button onclick="openStatusModalFor(${index})">📋 STATUS</button>
+                                <button onclick="openEditCombatantModal(${index})">✏️ EDIT</button>
+                                <button onclick="removeCombatant(${index})" class="btn-danger">🗑️</button>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function renderCombatLog() {
+            const container = document.getElementById('combat-log');
+            container.innerHTML = combatState.log.map(entry => `
+                <div class="log-entry ${entry.type}">
+                    <span class="log-timestamp">[${entry.timestamp}]</span>
+                    ${entry.message}
+                </div>
+            `).join('');
+            // Scroll to bottom
+            container.scrollTop = container.scrollHeight;
+        }
+
+        function updateCombatStatusBar() {
+            document.getElementById('round-counter').textContent = combatState.round;
+            document.getElementById('combat-phase').textContent = combatState.phase.toUpperCase();
+            const activeC = combatState.combatants[combatState.activeIndex];
+            document.getElementById('active-combatant-name').textContent = activeC ? activeC.name : '---';
+
+            // Update button states
+            const startBtn = document.getElementById('start-combat-btn');
+            const nextBtn = document.getElementById('next-turn-btn');
+            const prevBtn = document.getElementById('prev-turn-btn');
+
+            if (combatState.phase === 'active') {
+                startBtn.disabled = true;
+                nextBtn.disabled = false;
+                prevBtn.disabled = combatState.activeIndex <= 0;
+            } else {
+                startBtn.disabled = combatState.combatants.length === 0;
+                nextBtn.disabled = true;
+                prevBtn.disabled = true;
+            }
+        }
+
+        function updateActionPanel() {
+            const panel = document.getElementById('action-panel');
+            const activeC = combatState.combatants[combatState.activeIndex];
+
+            if (activeC && combatState.phase === 'active') {
+                document.getElementById('action-panel-name').textContent = activeC.name;
+                document.getElementById('action-panel-type').textContent = activeC.type.toUpperCase();
+                document.getElementById('action-panel-type').className = `card-type-badge ${activeC.type}`;
+                panel.style.display = 'block';
+            } else {
+                panel.style.display = 'none';
+            }
+        }
+
+        function renderEnemyTemplates() {
+            const container = document.getElementById('enemy-templates');
+            container.innerHTML = enemyTemplates.map((t, i) => `
+                <button class="template-btn" onclick="addFromTemplate(${i})">
+                    <span class="template-name">${t.name}</span>
+                    <span class="template-stats">HP:${t.hp} AR:${t.armor}</span>
+                </button>
+            `).join('');
+        }
+
+        // ============================================================
+        // COMBAT MANAGEMENT
+        // ============================================================
+        function startCombat() {
+            if (combatState.combatants.length === 0) {
+                alert('Add combatants first!');
+                return;
+            }
+
+            // Auto-roll initiative if enabled
+            if (combatState.settings.autoRollInit) {
+                rollAllInitiative();
+            }
+
+            combatState.phase = 'active';
+            combatState.round = 1;
+
+            // Find highest initiative to go first
+            let highestInit = -Infinity;
+            let firstIndex = 0;
+            combatState.combatants.forEach((c, i) => {
+                if ((c.initiative || 0) > highestInit && c.hp > 0) {
+                    highestInit = c.initiative || 0;
+                    firstIndex = i;
+                }
+            });
+
+            combatState.activeIndex = firstIndex;
+
+            addLogEntry('system', '═══════ COMBAT STARTED ═══════');
+            addLogEntry('round-marker', `━━━ ROUND ${combatState.round} ━━━`);
+            const first = combatState.combatants[firstIndex];
+            addLogEntry('system', `<span class="log-actor">${first.name}</span> acts first!`);
+
+            saveState();
+            renderAll();
+        }
+
+        function nextTurn() {
+            if (combatState.phase !== 'active') return;
+
+            // Get sorted combatants by initiative
+            const sorted = combatState.combatants
+                .map((c, i) => ({ ...c, originalIndex: i }))
+                .filter(c => c.hp > 0)
+                .sort((a, b) => (b.initiative || 0) - (a.initiative || 0));
+
+            // Find current position in order
+            const currentPos = sorted.findIndex(c => c.originalIndex === combatState.activeIndex);
+
+            // Move to next
+            let nextPos = currentPos + 1;
+
+            // Check if we need a new round
+            if (nextPos >= sorted.length) {
+                newRound();
+                return;
+            }
+
+            combatState.activeIndex = sorted[nextPos].originalIndex;
+            const next = combatState.combatants[combatState.activeIndex];
+            addLogEntry('system', `<span class="log-actor">${next.name}</span>'s turn.`);
+
+            // Tick down status durations
+            tickStatusDurations(combatState.activeIndex);
+
+            saveState();
+            renderAll();
+        }
+
+        function previousTurn() {
+            // Get sorted combatants
+            const sorted = combatState.combatants
+                .map((c, i) => ({ ...c, originalIndex: i }))
+                .filter(c => c.hp > 0)
+                .sort((a, b) => (b.initiative || 0) - (a.initiative || 0));
+
+            const currentPos = sorted.findIndex(c => c.originalIndex === combatState.activeIndex);
+
+            if (currentPos > 0) {
+                combatState.activeIndex = sorted[currentPos - 1].originalIndex;
+                saveState();
+                renderAll();
+            }
+        }
+
+        function newRound() {
+            combatState.round++;
+
+            // Reset to highest initiative
+            const sorted = combatState.combatants
+                .map((c, i) => ({ ...c, originalIndex: i }))
+                .filter(c => c.hp > 0)
+                .sort((a, b) => (b.initiative || 0) - (a.initiative || 0));
+
+            if (sorted.length > 0) {
+                combatState.activeIndex = sorted[0].originalIndex;
+            }
+
+            addLogEntry('round-marker', `━━━ ROUND ${combatState.round} ━━━`);
+            if (sorted.length > 0) {
+                addLogEntry('system', `<span class="log-actor">${sorted[0].name}</span> acts first.`);
+            }
+
+            saveState();
+            renderAll();
+        }
+
+        function endCombat() {
+            if (!confirm('End combat? This will reset the encounter.')) return;
+
+            combatState.phase = 'ended';
+            addLogEntry('system', '═══════ COMBAT ENDED ═══════');
+
+            saveState();
+            renderAll();
+        }
+
+        // ============================================================
+        // INITIATIVE
+        // ============================================================
+        function rollAllInitiative() {
+            combatState.combatants.forEach((c, i) => {
+                rollInitiativeFor(i, true);
+            });
+            addLogEntry('system', 'All combatants rolled initiative!');
+            saveState();
+            renderAll();
+        }
+
+        function rollInitiativeFor(index, silent = false) {
+            const c = combatState.combatants[index];
+            const dexMod = Math.floor(c.dex / 2);
+            const roll = Math.floor(Math.random() * 10) + 1; // 1d10
+            c.initiative = roll + dexMod + (c.initBonus || 0);
+
+            if (!silent) {
+                addLogEntry('move', `<span class="log-actor">${c.name}</span> rolled initiative: <span class="log-roll">${c.initiative}</span> (${roll} + DEX ${dexMod})`);
+                saveState();
+                renderAll();
+            }
+        }
+
+        function selectCombatant(index) {
+            // Scroll to combatant card
+            const card = document.querySelector(`.combatant-card[data-index="${index}"]`);
+            if (card) {
+                card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                card.style.animation = 'pulse 0.5s';
+                setTimeout(() => card.style.animation = '', 500);
+            }
+        }
+
+        function setActiveByIndex(index) {
+            if (!isAdmin) return;
+            const c = combatState.combatants[index];
+            if (c && c.hp > 0) {
+                combatState.activeIndex = index;
+                addLogEntry('system', `Active combatant set to <span class="log-actor">${c.name}</span>`);
+                saveState();
+                renderAll();
+            }
+        }
+
+        // ============================================================
+        // COMBATANT MANAGEMENT
+        // ============================================================
+
+        function generateId() {
+            return 'comb_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+        }
+
+        function createDefaultCombatant(type = 'player') {
+            return {
+                id: generateId(),
+                name: type === 'player' ? 'New Agent' : 'Enemy',
+                type: type,
+                str: 10, dex: 10, con: 10, int: 10, pow: 10, cha: 10,
+                hp: 10, hpMax: 10,
+                wp: 10, wpMax: 10,
+                san: 50, sanMax: 99,
+                armor: 0,
+                initiative: 0,
+                initBonus: 0,
+                firearms: 20, melee: 30, unarmed: 40, dodge: 30, athletics: 30, alertness: 20,
+                weapons: [],
+                statuses: [],
+                notes: '',
+                isVisible: true,
+                owner: null // For player-controlled characters
+            };
+        }
+
+        function openAddCombatantModal(type = 'player') {
+            if (!isAdmin) return;
+
+            document.getElementById('combatant-modal-title').textContent = `ADD ${type.toUpperCase()}`;
+            document.getElementById('combatant-id').value = '';
+            document.getElementById('comb-name').value = type === 'player' ? 'New Agent' : 'New Enemy';
+            document.getElementById('comb-type').value = type;
+
+            // Reset all fields to defaults
+            document.getElementById('comb-str').value = 10;
+            document.getElementById('comb-dex').value = 10;
+            document.getElementById('comb-con').value = 10;
+            document.getElementById('comb-int').value = 10;
+            document.getElementById('comb-pow').value = 10;
+            document.getElementById('comb-cha').value = 10;
+            document.getElementById('comb-hp').value = 10;
+            document.getElementById('comb-hp-max').value = 10;
+            document.getElementById('comb-wp').value = 10;
+            document.getElementById('comb-wp-max').value = 10;
+            document.getElementById('comb-armor').value = 0;
+            document.getElementById('comb-san').value = 50;
+            document.getElementById('comb-init-bonus').value = 0;
+            document.getElementById('comb-firearms').value = 20;
+            document.getElementById('comb-melee').value = 30;
+            document.getElementById('comb-unarmed').value = 40;
+            document.getElementById('comb-dodge').value = 30;
+            document.getElementById('comb-athletics').value = 30;
+            document.getElementById('comb-alertness').value = 20;
+            document.getElementById('comb-notes').value = '';
+
+            // Clear weapons
+            document.getElementById('comb-weapons-list').innerHTML = '';
+
+            document.getElementById('combatant-modal').classList.remove('hidden');
+        }
+
+        function openEditCombatantModal(index) {
+            if (!isAdmin) return;
+
+            const c = combatState.combatants[index];
+            if (!c) return;
+
+            document.getElementById('combatant-modal-title').textContent = 'EDIT COMBATANT';
+            document.getElementById('combatant-id').value = index;
+            document.getElementById('comb-name').value = c.name;
+            document.getElementById('comb-type').value = c.type;
+            document.getElementById('comb-str').value = c.str;
+            document.getElementById('comb-dex').value = c.dex;
+            document.getElementById('comb-con').value = c.con;
+            document.getElementById('comb-int').value = c.int;
+            document.getElementById('comb-pow').value = c.pow;
+            document.getElementById('comb-cha').value = c.cha;
+            document.getElementById('comb-hp').value = c.hp;
+            document.getElementById('comb-hp-max').value = c.hpMax;
+            document.getElementById('comb-wp').value = c.wp;
+            document.getElementById('comb-wp-max').value = c.wpMax;
+            document.getElementById('comb-armor').value = c.armor;
+            document.getElementById('comb-san').value = c.san || 50;
+            document.getElementById('comb-init-bonus').value = c.initBonus || 0;
+            document.getElementById('comb-firearms').value = c.firearms;
+            document.getElementById('comb-melee').value = c.melee;
+            document.getElementById('comb-unarmed').value = c.unarmed;
+            document.getElementById('comb-dodge').value = c.dodge;
+            document.getElementById('comb-athletics').value = c.athletics || 30;
+            document.getElementById('comb-alertness').value = c.alertness || 20;
+            document.getElementById('comb-notes').value = c.notes || '';
+
+            // Populate weapons
+            const weaponsList = document.getElementById('comb-weapons-list');
+            weaponsList.innerHTML = '';
+            if (c.weapons && c.weapons.length > 0) {
+                c.weapons.forEach(w => addWeaponToForm(w));
+            }
+
+            document.getElementById('combatant-modal').classList.remove('hidden');
+        }
+
+        function closeCombatantModal() {
+            document.getElementById('combatant-modal').classList.add('hidden');
+        }
+
+        function addWeaponToForm(weaponData = null) {
+            const container = document.getElementById('comb-weapons-list');
+            const weaponDiv = document.createElement('div');
+            weaponDiv.className = 'weapon-form-entry';
+            weaponDiv.style.cssText = 'display:grid;grid-template-columns:1fr 60px 80px 60px 60px 60px auto;gap:5px;align-items:end;margin-bottom:8px;padding:8px;background:rgba(0,0,0,0.3);border:1px solid var(--border-color);';
+
+            const w = weaponData || { name: '', skill: 40, dmg: '1d6', ap: 0, lethality: 0, ammo: null, type: 'melee' };
+
+            weaponDiv.innerHTML = `
+                <div class="form-group" style="margin:0;">
+                    <label style="font-size:9px;">NAME</label>
+                    <input type="text" class="weapon-name" value="${escapeHtml(w.name)}" placeholder="Weapon name">
+                </div>
+                <div class="form-group" style="margin:0;">
+                    <label style="font-size:9px;">SKILL%</label>
+                    <input type="number" class="weapon-skill" value="${w.skill}" min="0" max="99">
+                </div>
+                <div class="form-group" style="margin:0;">
+                    <label style="font-size:9px;">DAMAGE</label>
+                    <input type="text" class="weapon-dmg" value="${w.dmg}" placeholder="1d6">
+                </div>
+                <div class="form-group" style="margin:0;">
+                    <label style="font-size:9px;">AP</label>
+                    <input type="number" class="weapon-ap" value="${w.ap || 0}" min="0">
+                </div>
+                <div class="form-group" style="margin:0;">
+                    <label style="font-size:9px;">LETH%</label>
+                    <input type="number" class="weapon-lethality" value="${w.lethality || 0}" min="0" max="100">
+                </div>
+                <div class="form-group" style="margin:0;">
+                    <label style="font-size:9px;">AMMO</label>
+                    <input type="number" class="weapon-ammo" value="${w.ammo !== null && w.ammo !== undefined ? w.ammo : ''}" min="0" placeholder="-">
+                </div>
+                <div style="display:flex;align-items:end;">
+                    <button type="button" onclick="this.closest('.weapon-form-entry').remove()" class="btn-danger" style="padding:5px 8px;font-size:10px;">✕</button>
+                </div>
+            `;
+
+            container.appendChild(weaponDiv);
+        }
+
+        function saveCombatant() {
+            if (!isAdmin) return;
+
+            const indexStr = document.getElementById('combatant-id').value;
+            const isEdit = indexStr !== '';
+
+            // Gather weapon data
+            const weaponEntries = document.querySelectorAll('.weapon-form-entry');
+            const weapons = [];
+            weaponEntries.forEach(entry => {
+                const name = entry.querySelector('.weapon-name').value.trim();
+                if (name) {
+                    const ammoVal = entry.querySelector('.weapon-ammo').value;
+                    weapons.push({
+                        name: name,
+                        skill: parseInt(entry.querySelector('.weapon-skill').value) || 40,
+                        dmg: entry.querySelector('.weapon-dmg').value || '1d6',
+                        ap: parseInt(entry.querySelector('.weapon-ap').value) || 0,
+                        lethality: parseInt(entry.querySelector('.weapon-lethality').value) || 0,
+                        ammo: ammoVal !== '' ? parseInt(ammoVal) : null,
+                        type: 'custom'
+                    });
+                }
+            });
+
+            const combatant = {
+                id: isEdit ? combatState.combatants[parseInt(indexStr)].id : generateId(),
+                name: document.getElementById('comb-name').value.trim() || 'Unnamed',
+                type: document.getElementById('comb-type').value,
+                str: parseInt(document.getElementById('comb-str').value) || 10,
+                dex: parseInt(document.getElementById('comb-dex').value) || 10,
+                con: parseInt(document.getElementById('comb-con').value) || 10,
+                int: parseInt(document.getElementById('comb-int').value) || 10,
+                pow: parseInt(document.getElementById('comb-pow').value) || 10,
+                cha: parseInt(document.getElementById('comb-cha').value) || 10,
+                hp: parseInt(document.getElementById('comb-hp').value) || 10,
+                hpMax: parseInt(document.getElementById('comb-hp-max').value) || 10,
+                wp: parseInt(document.getElementById('comb-wp').value) || 10,
+                wpMax: parseInt(document.getElementById('comb-wp-max').value) || 10,
+                san: parseInt(document.getElementById('comb-san').value) || 50,
+                armor: parseInt(document.getElementById('comb-armor').value) || 0,
+                initBonus: parseInt(document.getElementById('comb-init-bonus').value) || 0,
+                firearms: parseInt(document.getElementById('comb-firearms').value) || 20,
+                melee: parseInt(document.getElementById('comb-melee').value) || 30,
+                unarmed: parseInt(document.getElementById('comb-unarmed').value) || 40,
+                dodge: parseInt(document.getElementById('comb-dodge').value) || 30,
+                athletics: parseInt(document.getElementById('comb-athletics').value) || 30,
+                alertness: parseInt(document.getElementById('comb-alertness').value) || 20,
+                weapons: weapons,
+                notes: document.getElementById('comb-notes').value,
+                statuses: isEdit ? combatState.combatants[parseInt(indexStr)].statuses : [],
+                initiative: isEdit ? combatState.combatants[parseInt(indexStr)].initiative : 0,
+                isVisible: true
+            };
+
+            if (isEdit) {
+                combatState.combatants[parseInt(indexStr)] = combatant;
+                addLogEntry('system', `<span class="log-actor">${combatant.name}</span> updated.`);
+            } else {
+                combatState.combatants.push(combatant);
+                addLogEntry('system', `<span class="log-actor">${combatant.name}</span> joined combat.`);
+            }
+
+            closeCombatantModal();
+            saveState();
+            renderAll();
+        }
+
+        function addFromTemplate(templateIndex) {
+            if (!isAdmin) return;
+
+            const t = enemyTemplates[templateIndex];
+            const combatant = {
+                id: generateId(),
+                name: t.name + ' ' + (combatState.combatants.filter(c => c.name.startsWith(t.name)).length + 1),
+                type: 'enemy',
+                str: t.str, dex: t.dex, con: t.con, int: t.int, pow: t.pow, cha: t.cha,
+                hp: t.hp, hpMax: t.hp,
+                wp: t.pow, wpMax: t.pow,
+                san: 0,
+                armor: t.armor,
+                initBonus: 0,
+                initiative: 0,
+                firearms: t.firearms, melee: t.melee, unarmed: t.unarmed, dodge: t.dodge,
+                athletics: 30, alertness: 30,
+                weapons: JSON.parse(JSON.stringify(t.weapons)),
+                statuses: [],
+                notes: '',
+                isVisible: true
+            };
+
+            combatState.combatants.push(combatant);
+            addLogEntry('system', `<span class="log-actor">${combatant.name}</span> entered combat.`);
+            saveState();
+            renderAll();
+        }
+
+        function removeCombatant(index) {
+            if (!isAdmin) return;
+            if (!confirm(`Remove ${combatState.combatants[index].name} from combat?`)) return;
+
+            const name = combatState.combatants[index].name;
+            combatState.combatants.splice(index, 1);
+
+            // Adjust active index if needed
+            if (combatState.activeIndex >= index && combatState.activeIndex > 0) {
+                combatState.activeIndex--;
+            }
+            if (combatState.activeIndex >= combatState.combatants.length) {
+                combatState.activeIndex = Math.max(0, combatState.combatants.length - 1);
+            }
+
+            addLogEntry('system', `${name} removed from combat.`);
+            saveState();
+            renderAll();
+        }
+
+        function clearAllCombatants() {
+            if (!isAdmin) return;
+            if (!confirm('Remove ALL combatants? This cannot be undone.')) return;
+
+            combatState.combatants = [];
+            combatState.activeIndex = -1;
+            combatState.round = 1;
+            combatState.phase = 'setup';
+
+            addLogEntry('system', 'All combatants cleared.');
+            saveState();
+            renderAll();
+        }
+
+        function updateCombatantName(index, newName) {
+            if (!isAdmin) return;
+            combatState.combatants[index].name = newName;
+            saveState();
+            renderInitiativeList();
+        }
+
+        function updateCombatantStat(index, stat, value) {
+            if (!isAdmin) return;
+            const c = combatState.combatants[index];
+            c[stat] = parseInt(value) || 0;
+
+            // Check for death
+            if (stat === 'hp' && c.hp <= 0 && !c.statuses?.find(s => s.name === 'dying' || s.name === 'dead')) {
+                c.hp = 0;
+                addStatusToCombatant(index, 'dying', 'negative', 0);
+                addLogEntry('damage', `<span class="log-actor">${c.name}</span> is <span class="log-critical">DYING!</span>`);
+            }
+
+            saveState();
+            renderAll();
+        }
+
+        // ============================================================
+        // ATTACK SYSTEM
+        // ============================================================
+
+        let currentAttacker = null;
+
+        function openAttackModalFor(index) {
+            if (!isAdmin && combatState.combatants[index].type !== 'player') return;
+
+            currentAttacker = combatState.combatants[index];
+            document.getElementById('attack-attacker-name').value = currentAttacker.name;
+
+            // Populate targets
+            const targetSelect = document.getElementById('attack-target');
+            targetSelect.innerHTML = '<option value="">-- Select Target --</option>';
+            combatState.combatants.forEach((c, i) => {
+                if (i !== index && c.hp > 0) {
+                    targetSelect.innerHTML += `<option value="${i}">${c.name} (HP: ${c.hp}/${c.hpMax})</option>`;
+                }
+            });
+
+            // Populate weapons
+            const weaponSelect = document.getElementById('attack-weapon');
+            weaponSelect.innerHTML = '<option value="">-- Select Weapon --</option>';
+            weaponSelect.innerHTML += `<option value="unarmed" data-skill="${currentAttacker.unarmed}" data-dmg="1d4" data-ap="0" data-leth="0">Unarmed (${currentAttacker.unarmed}%)</option>`;
+
+            if (currentAttacker.weapons) {
+                currentAttacker.weapons.forEach((w, wi) => {
+                    weaponSelect.innerHTML += `<option value="${wi}" data-skill="${w.skill}" data-dmg="${w.dmg}" data-ap="${w.ap || 0}" data-leth="${w.lethality || 0}">${w.name} (${w.skill}%)</option>`;
+                });
+            }
+
+            // Reset fields
+            document.getElementById('attack-skill').value = currentAttacker.unarmed;
+            document.getElementById('attack-modifier').value = 0;
+            document.getElementById('attack-aimed').checked = false;
+            document.getElementById('attack-called').checked = false;
+            document.getElementById('attack-location').disabled = true;
+            document.getElementById('attack-result').classList.add('hidden');
+
+            updateAttackFinalSkill();
+            document.getElementById('attack-modal').classList.remove('hidden');
+        }
+
+        function updateAttackSkill() {
+            const weaponSelect = document.getElementById('attack-weapon');
+            const selected = weaponSelect.options[weaponSelect.selectedIndex];
+
+            if (selected && selected.dataset.skill) {
+                document.getElementById('attack-skill').value = selected.dataset.skill;
+            }
+
+            updateAttackFinalSkill();
+        }
+
+        function updateAttackModifiers() {
+            const aimed = document.getElementById('attack-aimed').checked;
+            const called = document.getElementById('attack-called').checked;
+
+            document.getElementById('attack-location').disabled = !called;
+
+            let mod = parseInt(document.getElementById('attack-modifier').value) || 0;
+            if (aimed) mod += 20;
+            if (called) mod -= 20;
+
+            // Don't change modifier field, just update final
+            updateAttackFinalSkill();
+        }
+
+        function updateAttackFinalSkill() {
+            const base = parseInt(document.getElementById('attack-skill').value) || 0;
+            let mod = parseInt(document.getElementById('attack-modifier').value) || 0;
+
+            if (document.getElementById('attack-aimed').checked) mod += 20;
+            if (document.getElementById('attack-called').checked) mod -= 20;
+
+            const final = Math.max(1, Math.min(99, base + mod));
+            document.getElementById('attack-final-skill').value = final;
+        }
+
+        function executeAttack() {
+            const targetIndex = document.getElementById('attack-target').value;
+            if (!targetIndex) {
+                alert('Select a target!');
+                return;
+            }
+
+            const target = combatState.combatants[parseInt(targetIndex)];
+            const skill = parseInt(document.getElementById('attack-final-skill').value) || 40;
+            const roll = Math.floor(Math.random() * 100) + 1; // 1d100
+
+            const weaponSelect = document.getElementById('attack-weapon');
+            const selectedOption = weaponSelect.options[weaponSelect.selectedIndex];
+            const weaponName = selectedOption ? selectedOption.text.split('(')[0].trim() : 'Attack';
+            const dmgDice = selectedOption?.dataset.dmg || '1d4';
+            const ap = parseInt(selectedOption?.dataset.ap) || 0;
+            const lethality = parseInt(selectedOption?.dataset.leth) || 0;
+
+            const calledShot = document.getElementById('attack-called').checked;
+            const location = calledShot ? document.getElementById('attack-location').value : 'body';
+
+            // Determine result
+            const isCritical = roll <= skill && roll % 11 === 0 && roll !== 0; // Doubles under skill
+            const isFumble = (roll > skill && roll % 11 === 0) || roll === 100;
+            const isSuccess = roll <= skill;
+
+            let resultHTML = `
+                <div style="text-align:center;padding:15px;background:rgba(0,0,0,0.4);border:1px solid var(--border-color);">
+                    <div style="font-size:12px;color:#888;margin-bottom:5px;">ATTACK ROLL</div>
+                    <div style="font-size:48px;font-weight:bold;${isSuccess ? 'color:var(--success-color);' : 'color:var(--danger-color);'}">${roll}</div>
+                    <div style="font-size:14px;margin:10px 0;">vs <strong>${skill}%</strong></div>
+            `;
+
+            let logMessage = `<span class="log-actor">${currentAttacker.name}</span> attacks <span class="log-target">${target.name}</span> with ${weaponName}. `;
+            logMessage += `Roll: <span class="log-roll">${roll}</span> vs ${skill}% - `;
+
+            if (isCritical) {
+                resultHTML += `<div class="log-critical" style="font-size:24px;color:#ff00ff;animation:pulse 0.5s infinite;">⚡ CRITICAL SUCCESS ⚡</div>`;
+                resultHTML += `<div style="margin-top:10px;color:var(--success-color);">Damage is maximized or opponent cannot defend!</div>`;
+                logMessage += `<span class="log-critical">CRITICAL SUCCESS!</span>`;
+            } else if (isFumble) {
+                resultHTML += `<div class="log-critical" style="font-size:24px;color:#ff0000;">💀 FUMBLE 💀</div>`;
+                resultHTML += `<div style="margin-top:10px;color:var(--danger-color);">Something has gone terribly wrong...</div>`;
+                logMessage += `<span class="log-failure">FUMBLE!</span>`;
+            } else if (isSuccess) {
+                resultHTML += `<div style="font-size:20px;color:var(--success-color);">✓ HIT</div>`;
+                logMessage += `<span class="log-success">HIT!</span>`;
+
+                // Calculate damage
+                if (lethality > 0) {
+                    // Lethality roll
+                    const lethRoll = Math.floor(Math.random() * 100) + 1;
+                    const killed = lethRoll <= lethality;
+
+                    resultHTML += `
+                        <div class="lethality-display" style="margin-top:15px;">
+                            <div class="lethality-title">☠️ LETHALITY CHECK ☠️</div>
+                            <div class="lethality-roll" style="color:${killed ? 'var(--danger-color)' : 'var(--warning-color)'};">${lethRoll}</div>
+                            <div style="margin:10px 0;">vs <strong>${lethality}%</strong> Lethality</div>
+                            <div class="lethality-result ${killed ? 'killed' : 'survived'}">${killed ? '💀 INSTANT KILL 💀' : 'Target survives...'}</div>
+                            ${!killed ? `<div class="lethality-damage">Damage: ${Math.floor(lethRoll / 10) + (lethRoll % 10)} HP (sum of d100 digits)</div>` : ''}
+                        </div>
+                    `;
+
+                    if (killed) {
+                        logMessage += ` <span class="log-critical">LETHAL!</span> (${lethRoll} vs ${lethality}%) - <span class="log-damage">KILLED!</span>`;
+                    } else {
+                        const lethDmg = Math.floor(lethRoll / 10) + (lethRoll % 10);
+                        logMessage += ` Lethality failed (${lethRoll} vs ${lethality}%) - <span class="log-damage">${lethDmg} damage</span>`;
+                    }
+                } else {
+                    // Regular damage
+                    const dmgResult = rollDiceExpression(dmgDice);
+                    let finalDmg = isCritical ? maximizeDice(dmgDice) : dmgResult.total;
+
+                    // Apply armor
+                    const effectiveArmor = Math.max(0, (target.armor || 0) - ap);
+                    const armorReduction = effectiveArmor;
+                    finalDmg = Math.max(0, finalDmg - armorReduction);
+
+                    resultHTML += `
+                        <div style="margin-top:15px;padding:10px;background:rgba(255,0,0,0.1);border:1px solid var(--danger-color);">
+                            <div style="font-size:12px;color:#888;">DAMAGE</div>
+                            <div style="font-size:32px;font-weight:bold;color:var(--danger-color);">${finalDmg}</div>
+                            <div style="font-size:11px;color:#666;">
+                                ${dmgDice} = ${dmgResult.total}${isCritical ? ' (maximized)' : ''}
+                                ${armorReduction > 0 ? ` - ${armorReduction} armor` : ''}
+                                ${ap > 0 ? ` (AP ${ap})` : ''}
+                            </div>
+                        </div>
+                    `;
+
+                    logMessage += ` <span class="log-damage">${finalDmg} damage</span> (${dmgDice}${armorReduction > 0 ? ` - ${armorReduction} armor` : ''})`;
+
+                    // Add quick apply button
+                    resultHTML += `
+                        <button onclick="quickApplyDamage(${parseInt(targetIndex)}, ${finalDmg})" class="btn-danger" style="margin-top:15px;width:100%;">
+                            💀 APPLY ${finalDmg} DAMAGE TO ${target.name.toUpperCase()}
+                        </button>
+                    `;
+                }
+
+                if (calledShot) {
+                    resultHTML += `<div style="margin-top:10px;font-size:12px;color:var(--warning-color);">Called Shot: ${location.toUpperCase()}</div>`;
+                    logMessage += ` [Called: ${location}]`;
+                }
+            } else {
+                resultHTML += `<div style="font-size:20px;color:var(--danger-color);">✗ MISS</div>`;
+                logMessage += `<span class="log-failure">MISS</span>`;
+
+                // Check if target can dodge or fight back
+                resultHTML += `
+                    <div style="margin-top:15px;padding:10px;border:1px dashed var(--border-color);">
+                        <div style="font-size:11px;color:#888;margin-bottom:5px;">TARGET REACTION</div>
+                        <button onclick="rollOpposedDodge(${parseInt(targetIndex)}, ${roll})" style="margin:3px;">🏃 Dodge (${target.dodge}%)</button>
+                        <button onclick="rollOpposedFightBack(${parseInt(targetIndex)}, ${roll})" style="margin:3px;">⚔️ Fight Back</button>
+                    </div>
+                `;
+            }
+
+            resultHTML += '</div>';
+
+            document.getElementById('attack-result').innerHTML = resultHTML;
+            document.getElementById('attack-result').classList.remove('hidden');
+
+            addLogEntry('attack', logMessage);
+            saveState();
+            renderAll();
+        }
+
+        function quickApplyDamage(targetIndex, damage) {
+            const target = combatState.combatants[targetIndex];
+            const oldHp = target.hp;
+            target.hp = Math.max(0, target.hp - damage);
+
+            addLogEntry('damage', `<span class="log-target">${target.name}</span> takes <span class="log-damage">${damage} damage</span> (${oldHp} → ${target.hp} HP)`);
+
+            if (target.hp <= 0) {
+                addStatusToCombatant(targetIndex, 'dying', 'negative', 0);
+                addLogEntry('status', `<span class="log-target">${target.name}</span> is <span class="log-critical">DYING!</span>`);
+            } else if (target.hp <= 2) {
+                addLogEntry('status', `<span class="log-target">${target.name}</span> is at <span class="log-damage">CRITICAL HP!</span>`);
+            }
+
+            closeAttackModal();
+            saveState();
+            renderAll();
+        }
+
+        function rollOpposedDodge(defenderIndex, attackRoll) {
+            const defender = combatState.combatants[defenderIndex];
+            const dodgeRoll = Math.floor(Math.random() * 100) + 1;
+            const success = dodgeRoll <= defender.dodge;
+
+            const isCritical = dodgeRoll <= defender.dodge && dodgeRoll % 11 === 0 && dodgeRoll !== 0;
+
+            let message = `<span class="log-actor">${defender.name}</span> attempts to dodge: <span class="log-roll">${dodgeRoll}</span> vs ${defender.dodge}% - `;
+
+            if (isCritical) {
+                message += `<span class="log-critical">CRITICAL DODGE!</span> Counter-attack opportunity!`;
+            } else if (success && dodgeRoll < attackRoll) {
+                message += `<span class="log-success">DODGED!</span> Attack evaded.`;
+            } else if (success) {
+                message += `Success but attacker rolled lower. Attack connects.`;
+            } else {
+                message += `<span class="log-failure">FAILED</span> to dodge.`;
+            }
+
+            addLogEntry('move', message);
+            saveState();
+            renderAll();
+
+            // Update the attack result display
+            alert(`Dodge Roll: ${dodgeRoll} vs ${defender.dodge}% - ${success ? 'SUCCESS' : 'FAILED'}`);
+        }
+
+        function rollOpposedFightBack(defenderIndex, attackRoll) {
+            const defender = combatState.combatants[defenderIndex];
+            const fightBackSkill = Math.max(defender.unarmed, defender.melee);
+            const fbRoll = Math.floor(Math.random() * 100) + 1;
+            const success = fbRoll <= fightBackSkill;
+
+            let message = `<span class="log-actor">${defender.name}</span> fights back: <span class="log-roll">${fbRoll}</span> vs ${fightBackSkill}% - `;
+
+            if (success && fbRoll < attackRoll) {
+                message += `<span class="log-success">COUNTER!</span> ${defender.name} strikes back!`;
+            } else if (success) {
+                message += `Success but attacker rolled lower. Original attack connects.`;
+            } else {
+                message += `<span class="log-failure">FAILED</span> to counter.`;
+            }
+
+            addLogEntry('attack', message);
+            saveState();
+            renderAll();
+
+            alert(`Fight Back Roll: ${fbRoll} vs ${fightBackSkill}% - ${success ? 'SUCCESS' : 'FAILED'}`);
+        }
+
+        function closeAttackModal() {
+            document.getElementById('attack-modal').classList.add('hidden');
+            currentAttacker = null;
+        }
+
+        function quickAttackWith(combatantIndex, weaponIndex) {
+            openAttackModalFor(combatantIndex);
+
+            setTimeout(() => {
+                const weaponSelect = document.getElementById('attack-weapon');
+                weaponSelect.value = weaponIndex.toString();
+                updateAttackSkill();
+            }, 100);
+        }
+
+        // ============================================================
+        // DAMAGE SYSTEM
+        // ============================================================
+
+        function openDamageModalFor(targetIndex) {
+            if (!isAdmin) return;
+
+            const targetSelect = document.getElementById('damage-target');
+            targetSelect.innerHTML = '<option value="">-- Select Target --</option>';
+            combatState.combatants.forEach((c, i) => {
+                const selected = i === targetIndex ? 'selected' : '';
+                targetSelect.innerHTML += `<option value="${i}" ${selected}>${c.name} (HP: ${c.hp}/${c.hpMax}, Armor: ${c.armor})</option>`;
+            });
+
+            document.getElementById('damage-dice').value = '';
+            document.getElementById('damage-flat').value = '';
+            document.getElementById('damage-lethality').value = '';
+            document.getElementById('damage-ap').value = 0;
+            document.getElementById('damage-bypass-armor').checked = false;
+            document.getElementById('damage-type').value = 'physical';
+            document.getElementById('damage-result').classList.add('hidden');
+
+            document.getElementById('damage-modal').classList.remove('hidden');
+        }
+
+        function closeDamageModal() {
+            document.getElementById('damage-modal').classList.add('hidden');
+        }
+
+        function applyDamage() {
+            const targetIndex = document.getElementById('damage-target').value;
+            if (!targetIndex) {
+                alert('Select a target!');
+                return;
+            }
+
+            const target = combatState.combatants[parseInt(targetIndex)];
+            const dice = document.getElementById('damage-dice').value.trim();
+            const flat = parseInt(document.getElementById('damage-flat').value) || 0;
+            const lethality = parseInt(document.getElementById('damage-lethality').value) || 0;
+            const ap = parseInt(document.getElementById('damage-ap').value) || 0;
+            const bypassArmor = document.getElementById('damage-bypass-armor').checked;
+            const damageType = document.getElementById('damage-type').value;
+
+            let damage = 0;
+            let resultHTML = '<div style="text-align:center;">';
+            let logMessage = `<span class="log-target">${target.name}</span> `;
+
+            // Handle lethality
+            if (lethality > 0) {
+                const lethRoll = Math.floor(Math.random() * 100) + 1;
+                const killed = lethRoll <= lethality;
+
+                resultHTML += `
+                    <div class="lethality-display">
+                        <div class="lethality-title">☠️ LETHALITY ${lethality}% ☠️</div>
+                        <div class="lethality-roll" style="font-size:48px;color:${killed ? 'var(--danger-color)' : 'var(--warning-color)'};">${lethRoll}</div>
+                        <div class="lethality-result ${killed ? 'killed' : 'survived'}">${killed ? '💀 INSTANT DEATH 💀' : 'Survived'}</div>
+                `;
+
+                if (killed) {
+                    target.hp = 0;
+                    addStatusToCombatant(parseInt(targetIndex), 'dead', 'negative', 0);
+                    logMessage += `fails lethality check (${lethRoll} vs ${lethality}%) - <span class="log-critical">KILLED!</span>`;
+                } else {
+                    damage = Math.floor(lethRoll / 10) + (lethRoll % 10);
+                    resultHTML += `<div class="lethality-damage" style="margin-top:10px;">Damage from failed lethality: ${damage} HP</div>`;
+                    logMessage += `survives lethality (${lethRoll} vs ${lethality}%) but takes <span class="log-damage">${damage} damage</span>`;
+                }
+
+                resultHTML += '</div>';
+            } else if (dice) {
+                const diceResult = rollDiceExpression(dice);
+                damage = diceResult.total + flat;
+                resultHTML += `<div style="font-size:14px;color:#888;">Damage Roll: ${dice}${flat > 0 ? ` +${flat}` : flat < 0 ? ` ${flat}` : ''}</div>`;
+                resultHTML += `<div style="font-size:36px;font-weight:bold;color:var(--danger-color);">${diceResult.total}${flat !== 0 ? ` (${damage})` : ''}</div>`;
+                resultHTML += `<div style="font-size:12px;color:#666;">${diceResult.breakdown}</div>`;
+                logMessage += `takes <span class="log-damage">${damage} ${damageType} damage</span>`;
+            } else if (flat) {
+                damage = flat;
+                resultHTML += `<div style="font-size:14px;color:#888;">Flat Damage</div>`;
+                resultHTML += `<div style="font-size:36px;font-weight:bold;color:var(--danger-color);">${damage}</div>`;
+                logMessage += `takes <span class="log-damage">${damage} ${damageType} damage</span>`;
+            } else {
+                alert('Enter dice expression or flat damage!');
+                return;
+            }
+
+            // Apply armor (if not bypassed and not already lethal kill)
+            if (damage > 0 && !bypassArmor && target.hp > 0) {
+                const effectiveArmor = Math.max(0, (target.armor || 0) - ap);
+                if (effectiveArmor > 0) {
+                    const reduction = Math.min(effectiveArmor, damage);
+                    damage = Math.max(0, damage - reduction);
+                    resultHTML += `<div style="font-size:12px;color:#888;margin-top:5px;">Armor absorbs ${reduction} (AP: ${ap})</div>`;
+                    logMessage += ` (${reduction} absorbed by armor)`;
+                }
+            }
+
+            // Apply damage based on type
+            if (target.hp > 0) {
+                const oldHp = target.hp;
+
+                if (damageType === 'psychic') {
+                    target.wp = Math.max(0, target.wp - damage);
+                    resultHTML += `<div style="margin-top:10px;font-size:14px;">WP: ${target.wp + damage} → ${target.wp}</div>`;
+                    logMessage = logMessage.replace('damage</span>', 'WP damage</span>');
+                } else if (damageType === 'san') {
+                    target.san = Math.max(0, (target.san || 50) - damage);
+                    resultHTML += `<div style="margin-top:10px;font-size:14px;">SAN: ${(target.san || 50) + damage} → ${target.san}</div>`;
+                    logMessage = logMessage.replace('damage</span>', 'SAN loss</span>');
+                } else {
+                    target.hp = Math.max(0, target.hp - damage);
+                    resultHTML += `<div style="margin-top:10px;font-size:14px;">HP: ${oldHp} → ${target.hp}</div>`;
+                }
+
+                // Check for critical conditions
+                if (damageType !== 'san' && damageType !== 'psychic') {
+                    if (target.hp <= 0) {
+                        addStatusToCombatant(parseInt(targetIndex), 'dying', 'negative', 0);
+                        resultHTML += `<div style="margin-top:10px;color:var(--danger-color);font-weight:bold;">⚠️ ${target.name} IS DYING!</div>`;
+                        logMessage += ` - <span class="log-critical">DYING!</span>`;
+                    } else if (target.hp <= 2) {
+                        resultHTML += `<div style="margin-top:10px;color:var(--warning-color);">⚠️ ${target.name} is at critical HP!</div>`;
+                    }
+
+                    // Massive damage check (more than half max HP in one hit)
+                    if (damage >= target.hpMax / 2) {
+                        resultHTML += `<div style="margin-top:5px;color:var(--warning-color);">💥 MASSIVE DAMAGE - CON×5 check or fall unconscious!</div>`;
+                        logMessage += ` [Massive Damage]`;
+                    }
+                }
+            }
+
+            resultHTML += '</div>';
+
+            document.getElementById('damage-result').innerHTML = resultHTML;
+            document.getElementById('damage-result').classList.remove('hidden');
+
+            addLogEntry('damage', logMessage);
+            saveState();
+            renderAll();
+        }
+
+        function applyHealing() {
+            const targetIndex = document.getElementById('damage-target').value;
+            if (!targetIndex) {
+                alert('Select a target!');
+                return;
+            }
+
+            const target = combatState.combatants[parseInt(targetIndex)];
+            const dice = document.getElementById('damage-dice').value.trim();
+            const flat = parseInt(document.getElementById('damage-flat').value) || 0;
+
+            let healing = 0;
+
+            if (dice) {
+                const diceResult = rollDiceExpression(dice);
+                healing = diceResult.total + flat;
+            } else if (flat) {
+                healing = flat;
+            } else {
+                alert('Enter dice or flat amount!');
+                return;
+            }
+
+            const oldHp = target.hp;
+            target.hp = Math.min(target.hpMax, target.hp + healing);
+            const actualHeal = target.hp - oldHp;
+
+            // Remove dying status if healed
+            if (target.hp > 0) {
+                target.statuses = (target.statuses || []).filter(s => s.name !== 'dying');
+            }
+
+            document.getElementById('damage-result').innerHTML = `
+                <div style="text-align:center;">
+                    <div style="font-size:14px;color:#888;">Healing</div>
+                    <div style="font-size:36px;font-weight:bold;color:var(--success-color);">+${actualHeal} HP</div>
+                    <div style="margin-top:10px;font-size:14px;">HP: ${oldHp} → ${target.hp}</div>
+                </div>
+            `;
+            document.getElementById('damage-result').classList.remove('hidden');
+
+            addLogEntry('heal', `<span class="log-target">${target.name}</span> heals <span class="log-success">${actualHeal} HP</span> (${oldHp} → ${target.hp})`);
+            saveState();
+            renderAll();
+        }
+
+        // ============================================================
+        // STATUS EFFECTS
+        // ============================================================
+
+        function openStatusModalFor(targetIndex) {
+            if (!isAdmin) return;
+
+            const targetSelect = document.getElementById('status-target');
+            targetSelect.innerHTML = '<option value="">-- Select Target --</option>';
+            combatState.combatants.forEach((c, i) => {
+                const selected = i === targetIndex ? 'selected' : '';
+                targetSelect.innerHTML += `<option value="${i}" ${selected}>${c.name}</option>`;
+            });
+
+            document.getElementById('status-type').value = 'prone|negative';
+            document.getElementById('status-duration').value = 0;
+            document.getElementById('status-custom').value = '';
+
+            document.getElementById('status-modal').classList.remove('hidden');
+        }
+
+        function closeStatusModal() {
+            document.getElementById('status-modal').classList.add('hidden');
+        }
+
+        function applyStatus() {
+            const targetIndex = document.getElementById('status-target').value;
+            if (!targetIndex) {
+                alert('Select a target!');
+                return;
+            }
+
+            const customStatus = document.getElementById('status-custom').value.trim();
+            let statusName, statusType;
+
+            if (customStatus) {
+                statusName = customStatus;
+                statusType = 'neutral';
+            } else {
+                const statusValue = document.getElementById('status-type').value;
+                [statusName, statusType] = statusValue.split('|');
+            }
+
+            const duration = parseInt(document.getElementById('status-duration').value) || 0;
+
+            addStatusToCombatant(parseInt(targetIndex), statusName, statusType, duration);
+
+            const target = combatState.combatants[parseInt(targetIndex)];
+            addLogEntry('status', `<span class="log-target">${target.name}</span> gains status: <strong>${statusName}</strong>${duration > 0 ? ` (${duration} rounds)` : ''}`);
+
+            closeStatusModal();
+            saveState();
+            renderAll();
+        }
+
+        function addStatusToCombatant(index, name, type, duration) {
+            const c = combatState.combatants[index];
+            if (!c.statuses) c.statuses = [];
+
+            // Remove existing status of same name
+            c.statuses = c.statuses.filter(s => s.name !== name);
+
+            c.statuses.push({ name, type, duration });
+        }
+
+        function removeStatus(combatantIndex, statusName) {
+            if (!isAdmin) return;
+
+            const c = combatState.combatants[combatantIndex];
+            c.statuses = (c.statuses || []).filter(s => s.name !== statusName);
+
+            addLogEntry('status', `<span class="log-target">${c.name}</span> loses status: ${statusName}`);
+            saveState();
+            renderAll();
+        }
+
+        function tickStatusDurations(combatantIndex) {
+            const c = combatState.combatants[combatantIndex];
+            if (!c.statuses) return;
+
+            const expiredStatuses = [];
+
+            c.statuses = c.statuses.filter(s => {
+                if (s.duration > 0) {
+                    s.duration--;
+                    if (s.duration <= 0) {
+                        expiredStatuses.push(s.name);
+                        return false;
+                    }
+                }
+                return true;
+            });
+
+            expiredStatuses.forEach(name => {
+                addLogEntry('status', `<span class="log-target">${c.name}</span> status expired: ${name}`);
+            });
+
+            // Handle special status effects
+            if (c.statuses.some(s => s.name === 'bleeding')) {
+                const bleedDmg = Math.floor(Math.random() * 3) + 1; // 1d3
+                c.hp = Math.max(0, c.hp - bleedDmg);
+                addLogEntry('damage', `<span class="log-target">${c.name}</span> bleeds for <span class="log-damage">${bleedDmg} damage</span>`);
+            }
+
+            if (c.statuses.some(s => s.name === 'burning')) {
+                const burnDmg = Math.floor(Math.random() * 6) + 1; // 1d6
+                c.hp = Math.max(0, c.hp - burnDmg);
+                addLogEntry('damage', `<span class="log-target">${c.name}</span> burns for <span class="log-damage">${burnDmg} damage</span>`);
+            }
+
+            if (c.statuses.some(s => s.name === 'poisoned')) {
+                const poisonDmg = Math.floor(Math.random() * 4) + 1; // 1d4
+                c.hp = Math.max(0, c.hp - poisonDmg);
+                addLogEntry('damage', `<span class="log-target">${c.name}</span> takes <span class="log-damage">${poisonDmg} poison damage</span>`);
+            }
+        }
+
+        // ============================================================
+        // DICE ROLLING
+        // ============================================================
+
+        function rollDice(expression) {
+            const result = rollDiceExpression(expression);
+
+            document.getElementById('dice-result').innerHTML = `
+                <div class="result-value">${result.total}</div>
+                <div class="result-breakdown">${expression}: ${result.breakdown}</div>
+            `;
+
+            addLogEntry('system', `Dice roll: <span class="log-roll">${expression} = ${result.total}</span> (${result.breakdown})`);
+            saveState();
+        }
+
+        function rollDiceExpression(expr) {
+            // Parse expressions like "2d6+5", "1d10-2", "4d6kh3"
+            const cleanExpr = expr.toLowerCase().replace(/\s+/g, '');
+
+            let total = 0;
+            let breakdown = [];
+
+            // Split by + and - while keeping the operators
+            const parts = cleanExpr.split(/(?=[+-])/);
+
+            parts.forEach(part => {
+                const sign = part.startsWith('-') ? -1 : 1;
+                const cleanPart = part.replace(/^[+-]/, '');
+
+                if (cleanPart.includes('d')) {
+                    // Dice roll
+                    const match = cleanPart.match(/(\d*)d(\d+)(kh\d+|kl\d+)?/);
+                    if (match) {
+                        const count = parseInt(match[1]) || 1;
+                        const sides = parseInt(match[2]);
+                        const keep = match[3];
+
+                        let rolls = [];
+                        for (let i = 0; i < count; i++) {
+                            rolls.push(Math.floor(Math.random() * sides) + 1);
+                        }
+
+                        // Handle keep highest/lowest
+                        if (keep) {
+                            const keepCount = parseInt(keep.substring(2));
+                            rolls.sort((a, b) => keep.startsWith('kh') ? b - a : a - b);
+                            rolls = rolls.slice(0, keepCount);
+                        }
+
+                        const sum = rolls.reduce((a, b) => a + b, 0) * sign;
+                        total += sum;
+                        breakdown.push(`[${rolls.join(', ')}]`);
+                    }
+                } else {
+                    // Flat number
+                    const num = parseInt(cleanPart) * sign;
+                    if (!isNaN(num)) {
+                        total += num;
+                        if (num !== 0) {
+                            breakdown.push(num > 0 ? `+${num}` : num.toString());
+                        }
+                    }
+                }
+            });
+
+            return { total, breakdown: breakdown.join(' ') || total.toString() };
+        }
+
+        function maximizeDice(expr) {
+            // For critical hits - maximize all dice
+            const cleanExpr = expr.toLowerCase().replace(/\s+/g, '');
+            let total = 0;
+
+            const parts = cleanExpr.split(/(?=[+-])/);
+
+            parts.forEach(part => {
+                const sign = part.startsWith('-') ? -1 : 1;
+                const cleanPart = part.replace(/^[+-]/, '');
+
+                if (cleanPart.includes('d')) {
+                    const match = cleanPart.match(/(\d*)d(\d+)/);
+                    if (match) {
+                        const count = parseInt(match[1]) || 1;
+                        const sides = parseInt(match[2]);
+                        total += (count * sides) * sign;
+                    }
+                } else {
+                    const num = parseInt(cleanPart) * sign;
+                    if (!isNaN(num)) total += num;
+                }
+            });
+
+            return total;
+        }
+
+        function openCustomRollModal() {
+            document.getElementById('custom-dice-expr').value = '';
+            document.getElementById('custom-roll-label').value = '';
+            document.getElementById('custom-roll-modal').classList.remove('hidden');
+        }
+
+        function closeCustomRollModal() {
+            document.getElementById('custom-roll-modal').classList.add('hidden');
+        }
+
+        function executeCustomRoll() {
+            const expr = document.getElementById('custom-dice-expr').value.trim();
+            const label = document.getElementById('custom-roll-label').value.trim();
+
+            if (!expr) {
+                alert('Enter a dice expression!');
+                return;
+            }
+
+            const result = rollDiceExpression(expr);
+
+            document.getElementById('dice-result').innerHTML = `
+                <div class="result-value">${result.total}</div>
+                <div class="result-breakdown">${label ? label + ': ' : ''}${expr}: ${result.breakdown}</div>
+            `;
+
+            addLogEntry('system', `${label ? label + ' - ' : ''}Dice roll: <span class="log-roll">${expr} = ${result.total}</span>`);
+
+            closeCustomRollModal();
+            saveState();
+        }
+
+        // ============================================================
+        // COMBAT LOG
+        // ============================================================
+
+        function addLogEntry(type, message) {
+            const now = new Date();
+            const timestamp = now.toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' });
+
+            combatState.log.push({
+                type,
+                message,
+                timestamp,
+                round: combatState.round
+            });
+
+            // Keep log to reasonable size
+            if (combatState.log.length > 500) {
+                combatState.log = combatState.log.slice(-300);
+            }
+
+            renderCombatLog();
+        }
+
+        function clearLog() {
+            if (!isAdmin) return;
+            if (!confirm('Clear combat log?')) return;
+
+            combatState.log = [];
+            addLogEntry('system', 'Combat log cleared.');
+            saveState();
+        }
+
+        // ============================================================
+        // ACTIONS
+        // ============================================================
+
+        function performAction(actionType) {
+            if (!isAdmin) return;
+
+            const active = combatState.combatants[combatState.activeIndex];
+            if (!active) return;
+
+            switch (actionType) {
+                case 'attack':
+                    openAttackModalFor(combatState.activeIndex);
+                    break;
+
+                case 'aim':
+                    addStatusToCombatant(combatState.activeIndex, 'aimed', 'positive', 1);
+                    addLogEntry('move', `<span class="log-actor">${active.name}</span> takes aim (+20% to next attack).`);
+                    saveState();
+                    renderAll();
+                    break;
+
+                case 'dodge':
+                    addStatusToCombatant(combatState.activeIndex, 'dodging', 'positive', 1);
+                    addLogEntry('move', `<span class="log-actor">${active.name}</span> prepares to dodge.`);
+                    saveState();
+                    renderAll();
+                    break;
+
+                case 'move':
+                    const moveDist = active.dex * 3; // Rough approximation
+                    addLogEntry('move', `<span class="log-actor">${active.name}</span> moves (up to ${moveDist}ft).`);
+                    saveState();
+                    break;
+
+                case 'fightback':
+                    addLogEntry('attack', `<span class="log-actor">${active.name}</span> readies to fight back against next attacker.`);
+                    addStatusToCombatant(combatState.activeIndex, 'ready to counter', 'positive', 1);
+                    saveState();
+                    renderAll();
+                    break;
+
+                case 'disarm':
+                    performDisarm();
+                    break;
+
+                case 'reload':
+                    addLogEntry('move', `<span class="log-actor">${active.name}</span> reloads their weapon.`);
+                    // Could add ammo tracking here
+                    saveState();
+                    break;
+
+                case 'firstaid':
+                    performFirstAid();
+                    break;
+
+                case 'called':
+                    // Open attack modal with called shot enabled
+                    openAttackModalFor(combatState.activeIndex);
+                    setTimeout(() => {
+                        document.getElementById('attack-called').checked = true;
+                        updateAttackModifiers();
+                    }, 100);
+                    break;
+
+                case 'pin':
+                    performPin();
+                    break;
+
+                case 'delay':
+                    addStatusToCombatant(combatState.activeIndex, 'delayed', 'neutral', 0);
+                    addLogEntry('move', `<span class="log-actor">${active.name}</span> delays their turn.`);
+                    saveState();
+                    renderAll();
+                    break;
+
+                case 'other':
+                    const action = prompt('Describe the action:');
+                    if (action) {
+                        addLogEntry('move', `<span class="log-actor">${active.name}</span>: ${escapeHtml(action)}`);
+                        saveState();
+                    }
+                    break;
+            }
+        }
+
+        function performDisarm() {
+            const active = combatState.combatants[combatState.activeIndex];
+
+            // Prompt for target
+            const targets = combatState.combatants
+                .filter((c, i) => i !== combatState.activeIndex && c.hp > 0)
+                .map(c => c.name);
+
+            if (targets.length === 0) {
+                alert('No valid targets!');
+                return;
+            }
+
+            const targetName = prompt(`Disarm who?\n${targets.join('\n')}`);
+            if (!targetName) return;
+
+            const targetIndex = combatState.combatants.findIndex(c =>
+                c.name.toLowerCase() === targetName.toLowerCase()
+            );
+
+            if (targetIndex === -1) {
+                alert('Target not found!');
+                return;
+            }
+
+            const target = combatState.combatants[targetIndex];
+            const skill = active.unarmed; // Disarm uses unarmed
+            const roll = Math.floor(Math.random() * 100) + 1;
+            const success = roll <= skill;
+
+            let message = `<span class="log-actor">${active.name}</span> attempts to disarm <span class="log-target">${target.name}</span>: `;
+            message += `<span class="log-roll">${roll}</span> vs ${skill}% - `;
+
+            if (success) {
+                message += `<span class="log-success">SUCCESS!</span> Target is disarmed!`;
+                addStatusToCombatant(targetIndex, 'disarmed', 'negative', 0);
+            } else {
+                message += `<span class="log-failure">FAILED</span>`;
+            }
+
+            addLogEntry('attack', message);
+            saveState();
+            renderAll();
+        }
+
+        function performFirstAid() {
+            const active = combatState.combatants[combatState.activeIndex];
+
+            // Prompt for target
+            const targets = combatState.combatants
+                .filter(c => c.hp < c.hpMax)
+                .map(c => c.name);
+
+            if (targets.length === 0) {
+                alert('No one needs healing!');
+                return;
+            }
+
+            const targetName = prompt(`Perform First Aid on who?\n${targets.join('\n')}`);
+            if (!targetName) return;
+
+            const targetIndex = combatState.combatants.findIndex(c =>
+                c.name.toLowerCase() === targetName.toLowerCase()
+            );
+
+            if (targetIndex === -1) {
+                alert('Target not found!');
+                return;
+            }
+
+            const target = combatState.combatants[targetIndex];
+            const firstAidSkill = active.firstaid || 30; // Default 30 if not set
+            const roll = Math.floor(Math.random() * 100) + 1;
+            const success = roll <= firstAidSkill;
+            const isCritical = success && roll % 11 === 0 && roll !== 0;
+
+            let message = `<span class="log-actor">${active.name}</span> performs First Aid on <span class="log-target">${target.name}</span>: `;
+            message += `<span class="log-roll">${roll}</span> vs ${firstAidSkill}% - `;
+
+            if (isCritical) {
+                const healing = Math.floor(Math.random() * 4) + 2; // 1d4+1
+                target.hp = Math.min(target.hpMax, target.hp + healing);
+                target.statuses = (target.statuses || []).filter(s => s.name !== 'dying' && s.name !== 'bleeding');
+                message += `<span class="log-critical">CRITICAL!</span> Heals <span class="log-success">${healing} HP</span> and stabilizes!`;
+            } else if (success) {
+                const healing = 1;
+                target.hp = Math.min(target.hpMax, target.hp + healing);
+                target.statuses = (target.statuses || []).filter(s => s.name !== 'dying');
+                message += `<span class="log-success">SUCCESS!</span> Heals <span class="log-success">${healing} HP</span> and stabilizes.`;
+            } else {
+                message += `<span class="log-failure">FAILED</span>`;
+            }
+
+            addLogEntry('heal', message);
+            saveState();
+            renderAll();
+        }
+
+        function performPin() {
+            const active = combatState.combatants[combatState.activeIndex];
+
+            const targets = combatState.combatants
+                .filter((c, i) => i !== combatState.activeIndex && c.hp > 0)
+                .map(c => c.name);
+
+            if (targets.length === 0) {
+                alert('No valid targets!');
+                return;
+            }
+
+            const targetName = prompt(`Pin who?\n${targets.join('\n')}`);
+            if (!targetName) return;
+
+            const targetIndex = combatState.combatants.findIndex(c =>
+                c.name.toLowerCase() === targetName.toLowerCase()
+            );
+
+            if (targetIndex === -1) {
+                alert('Target not found!');
+                return;
+            }
+
+            const target = combatState.combatants[targetIndex];
+
+            // Pin is STR vs STR
+            const attackerStr = active.str * 5;
+            const defenderStr = target.str * 5;
+
+            const attackRoll = Math.floor(Math.random() * 100) + 1;
+            const defendRoll = Math.floor(Math.random() * 100) + 1;
+
+            const attackSuccess = attackRoll <= attackerStr;
+            const defendSuccess = defendRoll <= defenderStr;
+
+            let message = `<span class="log-actor">${active.name}</span> attempts to pin <span class="log-target">${target.name}</span>. `;
+            message += `Attacker: <span class="log-roll">${attackRoll}</span> vs ${attackerStr}%, `;
+            message += `Defender: <span class="log-roll">${defendRoll}</span> vs ${defenderStr}% - `;
+
+            if (attackSuccess && (!defendSuccess || attackRoll < defendRoll)) {
+                addStatusToCombatant(targetIndex, 'pinned', 'negative', 0);
+                addStatusToCombatant(combatState.activeIndex, 'pinning', 'neutral', 0);
+                message += `<span class="log-success">PINNED!</span>`;
+            } else {
+                message += `<span class="log-failure">RESISTED</span>`;
+            }
+
+            addLogEntry('attack', message);
+            saveState();
+            renderAll();
+        }
+
+        // ============================================================
+        // SETTINGS & SHARING
+        // ============================================================
+
+        function openSettingsModal() {
+            document.getElementById('settings-modal').classList.remove('hidden');
+
+            document.getElementById('setting-player-view').checked = combatState.settings.playerViewEnabled;
+            document.getElementById('setting-show-enemy-hp').checked = combatState.settings.showEnemyHp;
+            document.getElementById('setting-show-enemy-stats').checked = combatState.settings.showEnemyStats;
+            document.getElementById('setting-auto-roll-init').checked = combatState.settings.autoRollInit;
+
+            updateShareLink();
+        }
+
+        function closeSettingsModal() {
+            document.getElementById('settings-modal').classList.add('hidden');
+
+            // Save settings
+            combatState.settings.showEnemyHp = document.getElementById('setting-show-enemy-hp').checked;
+            combatState.settings.showEnemyStats = document.getElementById('setting-show-enemy-stats').checked;
+            combatState.settings.autoRollInit = document.getElementById('setting-auto-roll-init').checked;
+
+            saveState();
+        }
+
+        function togglePlayerSharing() {
+            combatState.settings.playerViewEnabled = document.getElementById('setting-player-view').checked;
+            updateShareLink();
+            saveState();
+        }
+
+        function updateShareLink() {
+            const shareInput = document.getElementById('share-link');
+
+            if (combatState.settings.playerViewEnabled) {
+                const baseUrl = window.location.origin + window.location.pathname;
+                const playerUrl = `${baseUrl}?session=${combatSessionId}&mode=player`;
+                shareInput.value = playerUrl;
+            } else {
+                shareInput.value = 'Enable player view to generate link';
+            }
+        }
+
+        function copyShareLink() {
+            const shareInput = document.getElementById('share-link');
+            shareInput.select();
+            document.execCommand('copy');
+
+            alert('Link copied to clipboard!');
+        }
+
+        // ============================================================
+        // SCREENSHOT
+        // ============================================================
+
+        async function screenshotCombat() {
+            const element = document.getElementById('screenshot-area');
+
+            try {
+                // Temporarily remove some styles for cleaner screenshot
+                element.style.maxWidth = 'none';
+
+                const canvas = await html2canvas(element, {
+                    backgroundColor: getComputedStyle(document.body).getPropertyValue('--bg-color'),
+                    scale: 2,
+                    logging: false,
+                    useCORS: true
+                });
+
+                // Restore styles
+                element.style.maxWidth = '';
+
+                // Download
+                const link = document.createElement('a');
+                link.download = `combat_round${combatState.round}_${Date.now()}.png`;
+                link.href = canvas.toDataURL('image/png');
+                link.click();
+
+                addLogEntry('system', '📷 Combat screenshot saved.');
+            } catch (error) {
+                console.error('Screenshot failed:', error);
+                alert('Screenshot failed. Check console for details.');
+            }
+        }
+
+        // ============================================================
+        // UTILITY FUNCTIONS
+        // ============================================================
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        // Keyboard shortcuts
+        document.addEventListener('keydown', (e) => {
+            if (!isAdmin) return;
+            if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+
+            switch (e.key) {
+                case 'n':
+                case 'N':
+                    if (combatState.phase === 'active') nextTurn();
+                    break;
+                case 'r':
+                case 'R':
+                    if (e.ctrlKey || e.metaKey) return; // Don't interfere with refresh
+                    rollDice('1d100');
+                    break;
+                case 'Escape':
+                    closeAllModals();
+                    break;
+            }
+        });
+
+        function closeAllModals() {
+            document.querySelectorAll('.modal-overlay').forEach(m => m.classList.add('hidden'));
+        }
+
+        // ============================================================
+        // SKILL CHECK HELPERS (Delta Green specific)
+        // ============================================================
+
+        function rollSkillCheck(skillValue, label = 'Skill Check') {
+            const roll = Math.floor(Math.random() * 100) + 1;
+            const success = roll <= skillValue;
+            const isCritical = success && roll % 11 === 0 && roll !== 0;
+            const isFumble = (roll > skillValue && roll % 11 === 0) || roll === 100;
+
+            let result;
+            if (isCritical) result = 'CRITICAL SUCCESS';
+            else if (isFumble) result = 'FUMBLE';
+            else if (success) result = 'SUCCESS';
+            else result = 'FAILURE';
+
+            const message = `${label}: <span class="log-roll">${roll}</span> vs ${skillValue}% - ` +
+                (isCritical ? `<span class="log-critical">${result}</span>` :
+                 isFumble ? `<span class="log-failure">${result}</span>` :
+                 success ? `<span class="log-success">${result}</span>` :
+                 `<span class="log-failure">${result}</span>`);
+
+            addLogEntry('system', message);
+
+            document.getElementById('dice-result').innerHTML = `
+                <div class="result-value" style="color:${success ? 'var(--success-color)' : 'var(--danger-color)'};">${roll}</div>
+                <div class="result-breakdown">${label} vs ${skillValue}%: ${result}</div>
+            `;
+
+            saveState();
+            return { roll, success, isCritical, isFumble };
+        }
+
+        // Sanity check helper
+        function rollSanityCheck(sanValue, successLoss, failureLoss) {
+            const roll = Math.floor(Math.random() * 100) + 1;
+            const success = roll <= sanValue;
+            const isFumble = roll === 100;
+
+            let loss;
+            if (isFumble) {
+                // Maximum possible loss on fumble
+                loss = maximizeDice(failureLoss);
+            } else if (success) {
+                loss = typeof successLoss === 'number' ? successLoss : rollDiceExpression(successLoss).total;
+            } else {
+                loss = typeof failureLoss === 'number' ? failureLoss : rollDiceExpression(failureLoss).total;
+            }
+
+            const message = `SAN Check: <span class="log-roll">${roll}</span> vs ${sanValue}% - ` +
+                (success ? `<span class="log-success">Success</span>` : `<span class="log-failure">Failed</span>`) +
+                ` (${isFumble ? 'FUMBLE! ' : ''}Lost ${loss} SAN)`;
+
+            addLogEntry('status', message);
+
+            document.getElementById('dice-result').innerHTML = `
+                <div class="result-value" style="color:${success ? 'var(--warning-color)' : 'var(--danger-color)'};">-${loss}</div>
+                <div class="result-breakdown">SAN: ${success ? 'Passed' : 'Failed'}${isFumble ? ' (FUMBLE!)' : ''}</div>
+            `;
+
+            saveState();
+            return { roll, success, loss, isFumble };
+        }
+
+        // ============================================================
+        // QUICK ROLL BUTTONS FOR ACTIVE COMBATANT
+        // ============================================================
+
+        function quickRollActiveSkill(skillName) {
+            const active = combatState.combatants[combatState.activeIndex];
+            if (!active) return;
+
+            const skillValue = active[skillName.toLowerCase()] || 30;
+            rollSkillCheck(skillValue, `${active.name}'s ${skillName}`);
+        }
+
+        function quickRollActiveStat(statName) {
+            const active = combatState.combatants[combatState.activeIndex];
+            if (!active) return;
+
+            const statValue = (active[statName.toLowerCase()] || 10) * 5;
+            rollSkillCheck(statValue, `${active.name}'s ${statName.toUpperCase()}×5`);
+        }
+
+        // ============================================================
+        // IMPORT/EXPORT
+        // ============================================================
+
+        function exportCombat() {
+            const data = JSON.stringify(combatState, null, 2);
+            const blob = new Blob([data], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `combat_session_${combatSessionId}.json`;
+            a.click();
+
+            URL.revokeObjectURL(url);
+            addLogEntry('system', 'Combat session exported.');
+        }
+
+        function importCombat() {
+            const input = document.createElement('input');
+            input.type = 'file';
+            input.accept = '.json';
+
+            input.onchange = (e) => {
+                const file = e.target.files[0];
+                if (!file) return;
+
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    try {
+                        const data = JSON.parse(e.target.result);
+                        combatState = data;
+                        addLogEntry('system', 'Combat session imported.');
+                        saveState();
+                        renderAll();
+                    } catch (err) {
+                        alert('Failed to import: Invalid file format');
+                    }
+                };
+                reader.readAsText(file);
+            };
+
+            input.click();
+        }
+
+        // ============================================================
+        // BOND/MOTIVATION TRACKER (Delta Green specific)
+        // ============================================================
+
+        function showBondDamage(combatantIndex, bondName, damageAmount) {
+            const c = combatState.combatants[combatantIndex];
+            if (!c) return;
+
+            addLogEntry('status', `<span class="log-actor">${c.name}</span>'s bond "${bondName}" takes ${damageAmount} damage from stress.`);
+            saveState();
+        }
+
+        // ============================================================
+        // AUTO-SAVE INTERVAL
+        // ============================================================
+
+        setInterval(() => {
+            if (isAdmin && combatState.combatants.length > 0) {
+                saveState();
+            }
+        }, 30000); // Auto-save every 30 seconds
+
+        // ============================================================
+        // PLAYER MODE RESTRICTIONS
+        // ============================================================
+
+        function canPlayerControl(combatantIndex) {
+            if (isAdmin) return true;
+            if (!isPlayerMode) return false;
+
+            const c = combatState.combatants[combatantIndex];
+            if (!c) return false;
+
+            // Player can only control if:
+            // 1. It's their character (type === 'player')
+            // 2. It's their turn
+            // 3. Player view is enabled
+            return c.type === 'player' &&
+                   combatantIndex === combatState.activeIndex &&
+                   combatState.settings.playerViewEnabled;
+        }
+
+        // Update UI based on player mode
+        function applyPlayerModeRestrictions() {
+            if (!isPlayerMode) return;
+
+            // Hide admin-only elements
+            document.querySelectorAll('.admin-only').forEach(el => {
+                el.style.display = 'none';
+            });
+
+            // Restrict interactions on non-player characters
+            combatState.combatants.forEach((c, i) => {
+                if (!canPlayerControl(i)) {
+                    const card = document.querySelector(`.combatant-card[data-index="${i}"]`);
+                    if (card) {
+                        card.querySelectorAll('input, button').forEach(el => {
+                            if (!el.classList.contains('player-visible')) {
+                                el.disabled = true;
+                            }
+                        });
+                    }
+                }
+            });
+
+            // Hide enemy stats if setting is disabled
+            if (!combatState.settings.showEnemyStats) {
+                combatState.combatants.forEach((c, i) => {
+                    if (c.type === 'enemy') {
+                        const card = document.querySelector(`.combatant-card[data-index="${i}"]`);
+                        if (card) {
+                            card.querySelector('.attributes-grid')?.classList.add('hidden');
+                            card.querySelector('.skills-section')?.classList.add('hidden');
+                        }
+                    }
+                });
+            }
+
+            // Hide enemy HP if setting is disabled
+            if (!combatState.settings.showEnemyHp) {
+                combatState.combatants.forEach((c, i) => {
+                    if (c.type === 'enemy') {
+                        const card = document.querySelector(`.combatant-card[data-index="${i}"]`);
+                        if (card) {
+                            const hpBar = card.querySelector('.stat-bar-fill.hp');
+                            if (hpBar) hpBar.parentElement.classList.add('hidden');
+                        }
+                    }
+                });
+            }
+        }
+
+        // Call this after rendering
+        const originalRenderAll = renderAll;
+        renderAll = function() {
+            originalRenderAll();
+            if (isPlayerMode) {
+                applyPlayerModeRestrictions();
+            }
+        };
+
+        console.log('Delta Green Combat Manager initialized.');
+        console.log('Keyboard shortcuts: N = Next turn, R = Roll d100, Esc = Close modals');
+    </script>
+</body>
+</html>
