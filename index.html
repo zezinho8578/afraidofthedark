@@ -5,11 +5,15 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Afraid of the Dark - Episodes</title>
     <link rel="icon" type="image/png" href="https://media.discordapp.net/attachments/1461536234034827537/1461536301856592004/AOTD_logo_1.png?ex=696ae940&is=696997c0&hm=b81f1cf08ec65edd2805a22716ab8d38d798ea7cb42f8a7098f26813fe1378e6&=&format=webp&quality=lossless">
+    
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-database-compat.js"></script>
+    
     <style>
         /* --- AFRAID OF THE DARK THEME --- */
         @keyframes flicker { 0%, 100% { opacity: 0.97; } 50% { opacity: 1; } }
         @keyframes pulse { 0%, 100% { box-shadow: 0 0 5px var(--accent-color); } 50% { box-shadow: 0 0 20px var(--accent-color); } }
-        @keyframes scanline { 0% { transform: translateY(-100%); } 100% { transform: translateY(100%); } }
 
         :root {
             --bg-color: #0a0a0a; 
@@ -179,6 +183,60 @@
         }
 
         .hidden { display: none !important; }
+
+        /* Loading State */
+        .loading-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: var(--bg-color);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 300;
+        }
+
+        .loading-spinner {
+            width: 50px;
+            height: 50px;
+            border: 3px solid var(--border-color);
+            border-top-color: var(--accent-color);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .loading-text {
+            margin-top: 20px;
+            letter-spacing: 3px;
+            animation: blink 1s infinite;
+        }
+
+        @keyframes blink {
+            0%, 50% { opacity: 1; }
+            51%, 100% { opacity: 0.3; }
+        }
+
+        .connection-status {
+            position: fixed;
+            bottom: 10px;
+            right: 10px;
+            padding: 5px 10px;
+            font-size: 11px;
+            border: 1px solid var(--border-color);
+            background: var(--bg-color);
+            z-index: 150;
+        }
+
+        .connection-status.connected { border-color: var(--success-color); color: var(--success-color); }
+        .connection-status.disconnected { border-color: var(--danger-color); color: var(--danger-color); }
+        .connection-status.connecting { border-color: #ffaa00; color: #ffaa00; }
 
         /* Navigation */
         .nav-bar {
@@ -631,6 +689,18 @@
             color: var(--accent-color);
         }
 
+        /* Error State */
+        .error-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: var(--danger-color);
+        }
+
+        .error-state h3 {
+            font-size: 20px;
+            margin-bottom: 10px;
+        }
+
         /* Responsive */
         @media (max-width: 768px) {
             .container { margin: 0; padding: 10px; border: none; }
@@ -644,6 +714,15 @@
     </style>
 </head>
 <body class="theme-dark">
+
+    <!-- Loading Overlay -->
+    <div id="loading-overlay" class="loading-overlay">
+        <div class="loading-spinner"></div>
+        <div class="loading-text">CONNECTING TO DATABASE...</div>
+    </div>
+
+    <!-- Connection Status -->
+    <div id="connection-status" class="connection-status connecting">● CONNECTING</div>
 
     <div class="container">
         <header class="header"> 
@@ -813,7 +892,7 @@
 
                 <div style="display: flex; gap: 10px; justify-content: flex-end; margin-top: 20px;">
                     <button type="button" onclick="closeEpisodeModal()">CANCEL</button>
-                    <button type="button" onclick="saveEpisode()" style="background: var(--danger-color); border-color: var(--danger-color);">SAVE EPISODE</button>
+                    <button type="button" id="save-episode-btn" onclick="saveEpisode()" style="background: var(--danger-color); border-color: var(--danger-color);">SAVE EPISODE</button>
                 </div>
             </form>
         </div>
@@ -830,27 +909,196 @@
     </div>
 
 <script>
+    // ============================================================
+    // FIREBASE CONFIGURATION
+    // ============================================================
+    // 
+    // TO SET UP FIREBASE:
+    // 1. Go to https://console.firebase.google.com/
+    // 2. Create a new project (or use existing)
+    // 3. Go to "Build" > "Realtime Database"
+    // 4. Click "Create Database" (start in TEST MODE for now)
+    // 5. Go to Project Settings > General > Your apps > Web app
+    // 6. Register your app and copy the config below
+    // 7. Replace the placeholder config with your actual config
+    //
+    // IMPORTANT: Set up security rules in Firebase Console:
+    // {
+    //   "rules": {
+    //     ".read": true,
+    //     ".write": false,
+    //     "episodes": { ".write": true },
+    //     "settings": { ".write": true }
+    //   }
+    // }
+    // ============================================================
+
+    const firebaseConfig = {
+        // REPLACE THESE WITH YOUR FIREBASE CONFIG
+        apiKey: "YOUR_API_KEY",
+        authDomain: "your-project.firebaseapp.com",
+        databaseURL: "https://your-project-default-rtdb.firebaseio.com",
+        projectId: "your-project",
+        storageBucket: "your-project.appspot.com",
+        messagingSenderId: "123456789",
+        appId: "1:123456789:web:abcdef123456"
+    };
+
+    // Flag to check if Firebase is configured
+    const isFirebaseConfigured = firebaseConfig.apiKey !== "YOUR_API_KEY";
+
     // --- CONFIG & STATE ---
-    const ADMIN_PASSWORD_HASH = 'dmFsa3lyaWU='; // Same as main app
+    const ADMIN_PASSWORD_HASH = 'dmFsa3lyaWU=';
     let isAdmin = false;
     let currentSeason = 1;
     let currentEpisodeId = null;
     let deleteTargetId = null;
+    let db = null;
+    let isConnected = false;
     
-    // Season unlock state (persisted)
-    let unlockedSeasons = 1; // Default: only season 1 is unlocked
+    // Season unlock state
+    let unlockedSeasons = 1;
     
-    // Episodes data (persisted in localStorage)
+    // Episodes data
     let episodes = [];
 
     // --- INITIALIZATION ---
-    window.onload = () => {
+    window.onload = async () => {
         loadSettings();
-        loadEpisodesData();
-        loadSeasonUnlockState();
-        renderSeasons();
         setupEventListeners();
+        
+        if (isFirebaseConfigured) {
+            await initFirebase();
+        } else {
+            console.warn('Firebase not configured. Using localStorage fallback.');
+            loadFromLocalStorage();
+            hideLoading();
+            updateConnectionStatus('disconnected', 'LOCAL MODE');
+        }
     };
+
+    async function initFirebase() {
+        try {
+            updateConnectionStatus('connecting', 'CONNECTING');
+            
+            // Initialize Firebase
+            firebase.initializeApp(firebaseConfig);
+            db = firebase.database();
+            
+            // Set up real-time listeners
+            setupRealtimeListeners();
+            
+            // Test connection
+            const connectedRef = db.ref('.info/connected');
+            connectedRef.on('value', (snap) => {
+                if (snap.val() === true) {
+                    isConnected = true;
+                    updateConnectionStatus('connected', 'CONNECTED');
+                } else {
+                    isConnected = false;
+                    updateConnectionStatus('disconnected', 'OFFLINE');
+                }
+            });
+            
+        } catch (error) {
+            console.error('Firebase initialization error:', error);
+            updateConnectionStatus('disconnected', 'ERROR');
+            loadFromLocalStorage();
+            hideLoading();
+        }
+    }
+
+    function setupRealtimeListeners() {
+        // Listen for episodes changes
+        db.ref('episodes').on('value', (snapshot) => {
+            const data = snapshot.val();
+            episodes = data ? Object.values(data) : [];
+            
+            // Also save to localStorage as backup
+            localStorage.setItem('aotd_episodes_backup', JSON.stringify(episodes));
+            
+            renderCurrentView();
+            hideLoading();
+        }, (error) => {
+            console.error('Error reading episodes:', error);
+            loadFromLocalStorage();
+            hideLoading();
+        });
+
+        // Listen for settings changes
+        db.ref('settings/unlockedSeasons').on('value', (snapshot) => {
+            const data = snapshot.val();
+            unlockedSeasons = data || 1;
+            localStorage.setItem('aotd_unlocked_seasons_backup', unlockedSeasons.toString());
+            updateUnlockStatus();
+            renderSeasons();
+        });
+    }
+
+    function loadFromLocalStorage() {
+        // Load episodes from localStorage backup
+        const savedEpisodes = localStorage.getItem('aotd_episodes_backup');
+        if (savedEpisodes) {
+            episodes = JSON.parse(savedEpisodes);
+        } else {
+            // Sample data
+            episodes = getSampleData();
+        }
+        
+        // Load unlock state
+        const savedUnlock = localStorage.getItem('aotd_unlocked_seasons_backup');
+        unlockedSeasons = savedUnlock ? parseInt(savedUnlock, 10) : 1;
+        
+        updateUnlockStatus();
+        renderSeasons();
+    }
+
+    function getSampleData() {
+        return [
+            {
+                id: 'ep_sample_1',
+                season: 1,
+                episode: 1,
+                title: 'Pilot: The First Night',
+                thumbnail: '',
+                length: '3h 15m',
+                airDate: '2024-01-15',
+                summary: 'The team is assembled for their first operation. Something lurks in the abandoned facility...',
+                fullSummary: 'SESSION NOTES:\n\nThe agents received their first briefing at the safehouse. Handler "Sphinx" provided minimal information - a missing research team at Site-17.\n\nKey Events:\n- Initial team introductions and cover establishment\n- Discovery of the abandoned research wing\n- First encounter with the anomaly (SAN loss: 1/1d4)\n- Agent Martinez wounded during extraction\n\nInvestigation Leads:\n- Dr. Elena Voss - last seen entering Lab 3B\n- Security footage shows movement at 0247 hours\n- Recovered documents reference "Project LIGHTHOUSE"\n\nCasualties: None (1 wounded)\nSAN Loss: All agents suffered minor losses'
+            },
+            {
+                id: 'ep_sample_2',
+                season: 1,
+                episode: 2,
+                title: 'The Paper Trail',
+                thumbnail: '',
+                length: '2h 45m',
+                airDate: '2024-01-22',
+                summary: 'Following leads from the first operation, the agents dig into the bureaucratic nightmare surrounding Project LIGHTHOUSE.',
+                fullSummary: 'SESSION NOTES:\n\nA quieter session focused on investigation and social encounters.\n\nKey Events:\n- Bureaucracy rolls to access classified archives\n- Meeting with retired Agent "Coldwater"\n- Discovery of the connection to 1987 incident\n- HUMINT operation at the university\n\nNew NPCs:\n- Prof. Harold Webb - Occult Studies, knows more than he admits\n- Sarah Chen - NSA analyst, potential ally or threat?\n\nClues Gathered:\n- LIGHTHOUSE was shut down after "containment failure"\n- Three survivors from original team still alive\n- Pattern of similar incidents dating back to 1952'
+            }
+        ];
+    }
+
+    function hideLoading() {
+        document.getElementById('loading-overlay').classList.add('hidden');
+    }
+
+    function updateConnectionStatus(status, text) {
+        const el = document.getElementById('connection-status');
+        el.className = `connection-status ${status}`;
+        el.textContent = `● ${text}`;
+    }
+
+    function renderCurrentView() {
+        if (!document.getElementById('season-view').classList.contains('hidden')) {
+            renderSeasons();
+        } else if (!document.getElementById('episode-list-view').classList.contains('hidden')) {
+            renderEpisodes(currentSeason);
+        } else if (!document.getElementById('episode-detail-view').classList.contains('hidden')) {
+            renderEpisodeDetail(currentEpisodeId);
+        }
+    }
 
     function setupEventListeners() {
         document.getElementById('settings-btn').addEventListener('click', (e) => { 
@@ -868,58 +1116,75 @@
         });
     }
 
-    // --- DATA PERSISTENCE ---
-    function loadEpisodesData() {
-        const saved = localStorage.getItem('aotd_episodes');
-        if (saved) {
-            episodes = JSON.parse(saved);
-        } else {
-            // Sample data for demonstration
-            episodes = [
-                {
-                    id: 'ep_sample_1',
-                    season: 1,
-                    episode: 1,
-                    title: 'Pilot: The First Night',
-                    thumbnail: '',
-                    length: '3h 15m',
-                    airDate: '2024-01-15',
-                    summary: 'The team is assembled for their first operation. Something lurks in the abandoned facility...',
-                    fullSummary: 'SESSION NOTES:\n\nThe agents received their first briefing at the safehouse. Handler "Sphinx" provided minimal information - a missing research team at Site-17.\n\nKey Events:\n- Initial team introductions and cover establishment\n- Discovery of the abandoned research wing\n- First encounter with the anomaly (SAN loss: 1/1d4)\n- Agent Martinez wounded during extraction\n\nInvestigation Leads:\n- Dr. Elena Voss - last seen entering Lab 3B\n- Security footage shows movement at 0247 hours\n- Recovered documents reference "Project LIGHTHOUSE"\n\nCasualties: None (1 wounded)\nSAN Loss: All agents suffered minor losses'
-                },
-                {
-                    id: 'ep_sample_2',
-                    season: 1,
-                    episode: 2,
-                    title: 'The Paper Trail',
-                    thumbnail: '',
-                    length: '2h 45m',
-                    airDate: '2024-01-22',
-                    summary: 'Following leads from the first operation, the agents dig into the bureaucratic nightmare surrounding Project LIGHTHOUSE.',
-                    fullSummary: 'SESSION NOTES:\n\nA quieter session focused on investigation and social encounters.\n\nKey Events:\n- Bureaucracy rolls to access classified archives\n- Meeting with retired Agent "Coldwater"\n- Discovery of the connection to 1987 incident\n- HUMINT operation at the university\n\nNew NPCs:\n- Prof. Harold Webb - Occult Studies, knows more than he admits\n- Sarah Chen - NSA analyst, potential ally or threat?\n\nClues Gathered:\n- LIGHTHOUSE was shut down after "containment failure"\n- Three survivors from original team still alive\n- Pattern of similar incidents dating back to 1952'
-                }
-            ];
-            saveEpisodesData();
+    // --- FIREBASE DATA OPERATIONS ---
+    async function saveEpisodeToFirebase(episodeData) {
+        if (!isFirebaseConfigured || !db) {
+            // Fallback to localStorage
+            const index = episodes.findIndex(e => e.id === episodeData.id);
+            if (index !== -1) {
+                episodes[index] = episodeData;
+            } else {
+                episodes.push(episodeData);
+            }
+            localStorage.setItem('aotd_episodes_backup', JSON.stringify(episodes));
+            renderCurrentView();
+            return;
+        }
+        
+        try {
+            await db.ref(`episodes/${episodeData.id}`).set(episodeData);
+        } catch (error) {
+            console.error('Error saving episode:', error);
+            alert('Error saving episode. Changes saved locally.');
+            // Save to localStorage as backup
+            const index = episodes.findIndex(e => e.id === episodeData.id);
+            if (index !== -1) {
+                episodes[index] = episodeData;
+            } else {
+                episodes.push(episodeData);
+            }
+            localStorage.setItem('aotd_episodes_backup', JSON.stringify(episodes));
         }
     }
 
-    function saveEpisodesData() {
-        localStorage.setItem('aotd_episodes', JSON.stringify(episodes));
-    }
-
-    function loadSeasonUnlockState() {
-        const saved = localStorage.getItem('aotd_unlocked_seasons');
-        if (saved) {
-            unlockedSeasons = parseInt(saved, 10);
+    async function deleteEpisodeFromFirebase(episodeId) {
+        if (!isFirebaseConfigured || !db) {
+            // Fallback to localStorage
+            const index = episodes.findIndex(e => e.id === episodeId);
+            if (index !== -1) {
+                episodes.splice(index, 1);
+                localStorage.setItem('aotd_episodes_backup', JSON.stringify(episodes));
+            }
+            renderCurrentView();
+            return;
         }
-        updateUnlockStatus();
+        
+        try {
+            await db.ref(`episodes/${episodeId}`).remove();
+        } catch (error) {
+            console.error('Error deleting episode:', error);
+            alert('Error deleting episode.');
+        }
     }
 
-    function saveSeasonUnlockState() {
-        localStorage.setItem('aotd_unlocked_seasons', unlockedSeasons.toString());
+    async function saveUnlockedSeasons(count) {
+        unlockedSeasons = count;
+        localStorage.setItem('aotd_unlocked_seasons_backup', count.toString());
+        
+        if (!isFirebaseConfigured || !db) {
+            updateUnlockStatus();
+            renderSeasons();
+            return;
+        }
+        
+        try {
+            await db.ref('settings/unlockedSeasons').set(count);
+        } catch (error) {
+            console.error('Error saving unlock state:', error);
+        }
     }
 
-    // --- THEME & SETTINGS (Same as main app) ---
+    // --- THEME & SETTINGS ---
     let currentTheme = 'dark';
     let currentTextSize = 'normal';
 
@@ -1019,15 +1284,7 @@
     function updateAdminUI() {
         document.getElementById('admin-season-controls').classList.toggle('hidden', !isAdmin);
         document.getElementById('admin-episode-controls').classList.toggle('hidden', !isAdmin);
-        
-        // Re-render current view to update action buttons
-        if (!document.getElementById('season-view').classList.contains('hidden')) {
-            renderSeasons();
-        } else if (!document.getElementById('episode-list-view').classList.contains('hidden')) {
-            renderEpisodes(currentSeason);
-        } else if (!document.getElementById('episode-detail-view').classList.contains('hidden')) {
-            renderEpisodeDetail(currentEpisodeId);
-        }
+        renderCurrentView();
     }
 
     // --- SEASON MANAGEMENT ---
@@ -1059,19 +1316,13 @@
 
     function unlockNextSeason() {
         if (unlockedSeasons < 6) {
-            unlockedSeasons++;
-            saveSeasonUnlockState();
-            renderSeasons();
-            updateUnlockStatus();
+            saveUnlockedSeasons(unlockedSeasons + 1);
         }
     }
 
     function lockLastSeason() {
         if (unlockedSeasons > 1) {
-            unlockedSeasons--;
-            saveSeasonUnlockState();
-            renderSeasons();
-            updateUnlockStatus();
+            saveUnlockedSeasons(unlockedSeasons - 1);
         }
     }
 
@@ -1131,7 +1382,7 @@
             <div class="episode-card">
                 <div class="episode-thumbnail">
                     ${ep.thumbnail ? 
-                        `<img src="${ep.thumbnail}" alt="${ep.title}" onerror="this.parentElement.innerHTML='<span class=\\'no-thumb\\'>▶</span>'">` : 
+                        `<img src="${ep.thumbnail}" alt="${escapeHtml(ep.title)}" onerror="this.parentElement.innerHTML='<span class=\\'no-thumb\\'>▶</span>'">` : 
                         '<span class="no-thumb">▶</span>'
                     }
                 </div>
@@ -1175,7 +1426,7 @@
             <div class="episode-detail-header">
                 <div class="episode-detail-thumb">
                     ${ep.thumbnail ? 
-                        `<img src="${ep.thumbnail}" alt="${ep.title}" onerror="this.parentElement.innerHTML='<div style=\\'text-align:center;padding-top:90px;color:#444;font-size:40px;\\'>▶</div>'">` : 
+                        `<img src="${ep.thumbnail}" alt="${escapeHtml(ep.title)}" onerror="this.parentElement.innerHTML='<div style=\\'text-align:center;padding-top:90px;color:#444;font-size:40px;\\'>▶</div>'">` : 
                         '<div style="text-align:center;padding-top:90px;color:#444;font-size:40px;">▶</div>'
                     }
                 </div>
@@ -1247,11 +1498,11 @@
         
         document.getElementById('episode-number').value = ep.episode;
         document.getElementById('episode-title').value = ep.title;
-        document.getElementById('episode-length').value = ep.length;
-        document.getElementById('episode-date').value = ep.airDate;
-        document.getElementById('episode-thumbnail').value = ep.thumbnail;
-        document.getElementById('episode-summary').value = ep.summary;
-        document.getElementById('episode-full-summary').value = ep.fullSummary;
+        document.getElementById('episode-length').value = ep.length || '';
+        document.getElementById('episode-date').value = ep.airDate || '';
+        document.getElementById('episode-thumbnail').value = ep.thumbnail || '';
+        document.getElementById('episode-summary').value = ep.summary || '';
+        document.getElementById('episode-full-summary').value = ep.fullSummary || '';
         
         updateThumbnailPreview();
         document.getElementById('episode-modal').classList.remove('hidden');
@@ -1272,7 +1523,7 @@
         }
     }
 
-    function saveEpisode() {
+    async function saveEpisode() {
         const id = document.getElementById('episode-id').value;
         const season = parseInt(document.getElementById('episode-season').value, 10);
         const episodeNum = parseInt(document.getElementById('episode-number').value, 10);
@@ -1282,6 +1533,10 @@
             alert('Episode title is required.');
             return;
         }
+        
+        const saveBtn = document.getElementById('save-episode-btn');
+        saveBtn.disabled = true;
+        saveBtn.textContent = 'SAVING...';
         
         const episodeData = {
             id: id || `ep_${Date.now()}`,
@@ -1295,29 +1550,12 @@
             fullSummary: document.getElementById('episode-full-summary').value.trim()
         };
         
-        if (id) {
-            // Update existing
-            const index = episodes.findIndex(e => e.id === id);
-            if (index !== -1) {
-                episodes[index] = episodeData;
-            }
-        } else {
-            // Add new
-            episodes.push(episodeData);
-        }
+        await saveEpisodeToFirebase(episodeData);
         
-        saveEpisodesData();
+        saveBtn.disabled = false;
+        saveBtn.textContent = 'SAVE EPISODE';
+        
         closeEpisodeModal();
-        
-        // Refresh view
-        if (!document.getElementById('episode-detail-view').classList.contains('hidden')) {
-            renderEpisodeDetail(episodeData.id);
-        } else {
-            renderEpisodes(currentSeason);
-        }
-        
-        renderSeasons(); // Update episode counts
-        
         alert(`Episode "${title}" saved successfully.`);
     }
 
@@ -1337,20 +1575,13 @@
         deleteTargetId = null;
     }
 
-    function confirmDelete() {
+    async function confirmDelete() {
         if (!deleteTargetId) return;
         
-        const index = episodes.findIndex(e => e.id === deleteTargetId);
-        if (index !== -1) {
-            episodes.splice(index, 1);
-            saveEpisodesData();
-        }
+        await deleteEpisodeFromFirebase(deleteTargetId);
         
         closeDeleteModal();
-        
-        // Navigate back to episode list
         showEpisodeList(currentSeason);
-        renderSeasons();
         
         alert('Episode deleted.');
     }
