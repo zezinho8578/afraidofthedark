@@ -2663,6 +2663,16 @@
             renderAll();
         }
 
+        function quickAttackWith(combatantIndex, weaponIndex) {
+            openAttackModalFor(combatantIndex);
+
+            setTimeout(() => {
+                const weaponSelect = document.getElementById('attack-weapon');
+                weaponSelect.value = weaponIndex.toString();
+                updateAttackSkill();
+            }, 100);
+        }
+
         function quickApplyDamage(targetIndex, damage) {
             const target = combatState.combatants[targetIndex];
             const oldHp = target.hp;
@@ -2735,16 +2745,6 @@
         function closeAttackModal() {
             document.getElementById('attack-modal').classList.add('hidden');
             currentAttacker = null;
-        }
-
-        function quickAttackWith(combatantIndex, weaponIndex) {
-            openAttackModalFor(combatantIndex);
-
-            setTimeout(() => {
-                const weaponSelect = document.getElementById('attack-weapon');
-                weaponSelect.value = weaponIndex.toString();
-                updateAttackSkill();
-            }, 100);
         }
 
         // ============================================================
