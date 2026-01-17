@@ -20,6 +20,8 @@
         @keyframes shake { 0%, 100% { transform: translateX(0); } 25% { transform: translateX(-5px); } 75% { transform: translateX(5px); } }
         @keyframes slideIn { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
         @keyframes criticalPulse { 0%, 100% { background-color: var(--danger-color); } 50% { background-color: #ff0000; } }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        @keyframes blink { 0%, 50% { opacity: 1; } 51%, 100% { opacity: 0.3; } }
 
         :root {
             --bg-color: #0a0a0a;
@@ -891,15 +893,11 @@
             animation: spin 1s linear infinite;
         }
 
-        @keyframes spin { to { transform: rotate(360deg); } }
-
         .loading-text {
             margin-top: 20px;
             letter-spacing: 3px;
             animation: blink 1s infinite;
         }
-
-        @keyframes blink { 0%, 50% { opacity: 1; } 51%, 100% { opacity: 0.3; } }
 
         /* === SCREENSHOT AREA === */
         #screenshot-area {
@@ -1017,7 +1015,7 @@
                 </div>
 
                 <!-- Active Combatant Action Panel -->
-                <div class="action-panel admin-only" id="action-panel">
+                <div class="action-panel admin-only" id="action-panel" style="display:none;">
                     <div class="action-panel-header">
                         <h3>ACTIONS FOR: <span id="action-panel-name">---</span></h3>
                         <span id="action-panel-type" class="card-type-badge">---</span>
@@ -1285,11 +1283,11 @@
             <div class="form-row">
                 <div class="form-group">
                     <label>BASE SKILL</label>
-                    <input type="number" id="attack-skill" value="40">
+                    <input type="number" id="attack-skill" value="40" oninput="updateAttackFinalSkill()">
                 </div>
                 <div class="form-group">
                     <label>MODIFIERS</label>
-                    <input type="number" id="attack-modifier" value="0">
+                    <input type="number" id="attack-modifier" value="0" oninput="updateAttackFinalSkill()">
                 </div>
                 <div class="form-group">
                     <label>FINAL SKILL</label>
@@ -1556,12 +1554,22 @@
             appId: "1:63737248707:web:4da1fa983dc8beb3acdb76"
         };
 
+        // Note: The original configuration for the first file was:
+        // const firebaseConfig = {
+        //     apiKey: "AIzaSyAfSyEavpC2piXdYOQTdkj8DV--djZWJWM", // User placeholder
+        //     authDomain: "afraidofthedark-83b3c.firebaseapp.com",
+        //     databaseURL: "https://afraidofthedark-83b3c-default-rtdb.europe-west1.firebasedatabase.app",
+        //     projectId: "afraidofthedark-83b3c",
+        //     appId: "1:63737248707:web:4da1fa983dc8beb3acdb76"
+        // };
+        // The consolidated config from the second file is more complete.
+
         const isFirebaseConfigured = firebaseConfig.apiKey !== "YOUR_API_KEY";
 
         // ============================================================
         // STATE MANAGEMENT
         // ============================================================
-        const ADMIN_PASSWORD_HASH = 'dmFsa3lyaWU=';
+        const ADMIN_PASSWORD_HASH = 'dmFsa3lyaWU='; // Base64 for "valkyrie"
         let isAdmin = false;
         let isPlayerMode = false;
         let db = null;
@@ -1608,6 +1616,9 @@
                 if (modeParam === 'player') {
                     isPlayerMode = true;
                     document.body.classList.add('player-mode');
+                    // Player mode doesn't need admin login button
+                    const adminBtn = document.getElementById('admin-login-btn');
+                    if(adminBtn) adminBtn.style.display = 'none';
                 }
             } else {
                 combatSessionId = `combat_${Date.now()}`;
@@ -1678,6 +1689,9 @@
                 db.ref(`combatSessions/${combatSessionId}`).set(combatState).catch(err => {
                     console.error('Firebase save error:', err);
                 });
+            } else if (isFirebaseConfigured && db && isPlayerMode) {
+                // Player-specific updates (e.g., log, simple actions) should be handled via specific functions
+                // For simplicity, we only allow admin to save full state. Player interaction is handled by specific action functions.
             }
         }
 
@@ -1698,8 +1712,33 @@
 
         function setupEventListeners() {
             // Skill/modifier input changes
-            document.getElementById('attack-skill').addEventListener('input', updateAttackFinalSkill);
-            document.getElementById('attack-modifier').addEventListener('input', updateAttackFinalSkill);
+            // Note: These handlers are added directly to the input elements in the new HTML,
+            // so we only need the one for the initial script load that sets up the logic.
+            const attackSkillInput = document.getElementById('attack-skill');
+            const attackModifierInput = document.getElementById('attack-modifier');
+            if (attackSkillInput) attackSkillInput.addEventListener('input', updateAttackFinalSkill);
+            if (attackModifierInput) attackModifierInput.addEventListener('input', updateAttackFinalSkill);
+
+            // Global key listeners from the second file
+            document.addEventListener('keydown', (e) => {
+                if (!isAdmin) return;
+                if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+
+                switch (e.key) {
+                    case 'n':
+                    case 'N':
+                        if (combatState.phase === 'active') nextTurn();
+                        break;
+                    case 'r':
+                    case 'R':
+                        if (e.ctrlKey || e.metaKey) return; // Don't interfere with refresh
+                        rollDice('1d100');
+                        break;
+                    case 'Escape':
+                        closeAllModals();
+                        break;
+                }
+            });
         }
 
         // ============================================================
@@ -1756,6 +1795,9 @@
             renderCombatLog();
             updateCombatStatusBar();
             updateActionPanel();
+            if (isPlayerMode) {
+                applyPlayerModeRestrictions();
+            }
         }
 
         function renderInitiativeList() {
@@ -1815,7 +1857,13 @@
                 const isDead = c.hp <= 0;
                 const hpPercent = Math.max(0, Math.min(100, (c.hp / c.hpMax) * 100));
                 const wpPercent = Math.max(0, Math.min(100, (c.wp / c.wpMax) * 100));
+                const sanPercent = Math.max(0, Math.min(100, (c.san / c.sanMax) * 100));
                 const hpClass = hpPercent <= 25 ? 'critical' : hpPercent <= 50 ? 'wounded' : '';
+
+                // Visibility checks for player mode
+                const showEnemyHp = combatState.settings.showEnemyHp || c.type !== 'enemy' || isAdmin;
+                const showEnemyStats = combatState.settings.showEnemyStats || c.type !== 'enemy' || isAdmin;
+                const showHpBar = showEnemyHp || c.type !== 'enemy'; // Always show player/ally HP
 
                 return `
                     <div class="combatant-card ${c.type} ${isActive ? 'active' : ''} ${isDead ? 'dead' : ''}" data-index="${index}" data-owner="${c.type}">
@@ -1839,10 +1887,10 @@
                             ` : ''}
                             <!-- Stat Bars -->
                             <div class="stat-bars">
-                                <div class="stat-bar-container">
+                                <div class="stat-bar-container" ${!showHpBar ? 'style="display:none;"' : ''}>
                                     <div class="stat-bar-header">
                                         <span class="label">HP</span>
-                                        <span class="value">${c.hp}/${c.hpMax}</span>
+                                        <span class="value">${showEnemyHp ? `${c.hp}/${c.hpMax}` : c.type === 'enemy' ? '???' : `${c.hp}/${c.hpMax}`}</span>
                                     </div>
                                     <div class="stat-bar">
                                         <div class="stat-bar-fill hp ${hpClass}" style="width:${hpPercent}%"></div>
@@ -1853,7 +1901,7 @@
                                         <input type="number" value="${c.hpMax}" min="1" onchange="updateCombatantStat(${index}, 'hpMax', this.value)" class="small">
                                     </div>
                                 </div>
-                                <div class="stat-bar-container">
+                                <div class="stat-bar-container" ${c.type === 'enemy' ? 'style="display:none;"' : ''}>
                                     <div class="stat-bar-header">
                                         <span class="label">WP</span>
                                         <span class="value">${c.wp}/${c.wpMax}</span>
@@ -1876,8 +1924,8 @@
                                     <span class="player-visible" style="font-weight:bold;">${c.armor} AP</span>
                                 </div>
                             ` : ''}
-                            <!-- Attributes -->
-                            <div class="attributes-grid">
+                            <!-- Attributes (Hidden for enemy in Player Mode if setting is off) -->
+                            <div class="attributes-grid" ${c.type === 'enemy' && !showEnemyStats ? 'style="display:none;"' : ''}>
                                 ${['str','dex','con','int','pow','cha'].map(attr => `
                                     <div class="attr-item">
                                         <div class="attr-label">${attr.toUpperCase()}</div>
@@ -1886,8 +1934,8 @@
                                     </div>
                                 `).join('')}
                             </div>
-                            <!-- Skills -->
-                            <div class="skills-section">
+                            <!-- Skills (Hidden for enemy in Player Mode if setting is off) -->
+                            <div class="skills-section" ${c.type === 'enemy' && !showEnemyStats ? 'style="display:none;"' : ''}>
                                 <div class="skills-compact">
                                     <span class="skill-tag">Firearms: <span class="skill-value">${c.firearms}%</span></span>
                                     <span class="skill-tag">Melee: <span class="skill-value">${c.melee}%</span></span>
@@ -1904,7 +1952,7 @@
                                             <span class="weapon-stat">Skill: <strong>${w.skill}%</strong></span>
                                             <span class="weapon-stat">Dmg: <strong>${w.dmg}</strong></span>
                                             ${w.lethality ? `<span class="weapon-stat">Leth: <strong>${w.lethality}%</strong></span>` : ''}
-                                            ${w.ammo !== undefined ? `<span class="weapon-stat">Ammo: <strong>${w.ammo}</strong></span>` : ''}
+                                            ${w.ammo !== null && w.ammo !== undefined ? `<span class="weapon-stat">Ammo: <strong>${w.ammo}</strong></span>` : ''}
                                             <div class="weapon-actions admin-only">
                                                 <button onclick="quickAttackWith(${index}, ${wi})" class="btn-danger">ATK</button>
                                             </div>
@@ -1913,7 +1961,7 @@
                                 </div>
                             ` : ''}
                             <!-- Card Actions -->
-                            <div class="card-actions">
+                            <div class="card-actions admin-only">
                                 <button onclick="openAttackModalFor(${index})" class="btn-danger">⚔️ ATTACK</button>
                                 <button onclick="openDamageModalFor(${index})" class="btn-warning">💥 DAMAGE</button>
                                 <button onclick="openStatusModalFor(${index})">📋 STATUS</button>
@@ -1950,13 +1998,13 @@
             const prevBtn = document.getElementById('prev-turn-btn');
 
             if (combatState.phase === 'active') {
-                startBtn.disabled = true;
-                nextBtn.disabled = false;
-                prevBtn.disabled = combatState.activeIndex <= 0;
+                if(startBtn) startBtn.disabled = true;
+                if(nextBtn) nextBtn.disabled = false;
+                if(prevBtn) prevBtn.disabled = combatState.activeIndex <= 0;
             } else {
-                startBtn.disabled = combatState.combatants.length === 0;
-                nextBtn.disabled = true;
-                prevBtn.disabled = true;
+                if(startBtn) startBtn.disabled = combatState.combatants.length === 0;
+                if(nextBtn) nextBtn.disabled = true;
+                if(prevBtn) prevBtn.disabled = true;
             }
         }
 
@@ -1968,7 +2016,12 @@
                 document.getElementById('action-panel-name').textContent = activeC.name;
                 document.getElementById('action-panel-type').textContent = activeC.type.toUpperCase();
                 document.getElementById('action-panel-type').className = `card-type-badge ${activeC.type}`;
-                panel.style.display = 'block';
+                // Only show to Admin OR if player mode and this is the player's controlled char
+                if (isAdmin || (isPlayerMode && canPlayerControl(combatState.activeIndex))) {
+                    panel.style.display = 'block';
+                } else {
+                    panel.style.display = 'none';
+                }
             } else {
                 panel.style.display = 'none';
             }
@@ -1988,6 +2041,7 @@
         // COMBAT MANAGEMENT
         // ============================================================
         function startCombat() {
+            if (!isAdmin) return;
             if (combatState.combatants.length === 0) {
                 alert('Add combatants first!');
                 return;
@@ -2001,28 +2055,30 @@
             combatState.phase = 'active';
             combatState.round = 1;
 
+            // Sort by initiative (descending)
+            const sorted = combatState.combatants
+                .map((c, i) => ({ ...c, originalIndex: i }))
+                .filter(c => c.hp > 0)
+                .sort((a, b) => (b.initiative || 0) - (a.initiative || 0));
+
             // Find highest initiative to go first
-            let highestInit = -Infinity;
-            let firstIndex = 0;
-            combatState.combatants.forEach((c, i) => {
-                if ((c.initiative || 0) > highestInit && c.hp > 0) {
-                    highestInit = c.initiative || 0;
-                    firstIndex = i;
-                }
-            });
+            let firstIndex = sorted.length > 0 ? sorted[0].originalIndex : -1;
 
             combatState.activeIndex = firstIndex;
 
             addLogEntry('system', '═══════ COMBAT STARTED ═══════');
             addLogEntry('round-marker', `━━━ ROUND ${combatState.round} ━━━`);
-            const first = combatState.combatants[firstIndex];
-            addLogEntry('system', `<span class="log-actor">${first.name}</span> acts first!`);
+            if (firstIndex !== -1) {
+                const first = combatState.combatants[firstIndex];
+                addLogEntry('system', `<span class="log-actor">${first.name}</span> acts first!`);
+            }
 
             saveState();
             renderAll();
         }
 
         function nextTurn() {
+            if (!isAdmin) return;
             if (combatState.phase !== 'active') return;
 
             // Get sorted combatants by initiative
@@ -2055,6 +2111,7 @@
         }
 
         function previousTurn() {
+            if (!isAdmin) return;
             // Get sorted combatants
             const sorted = combatState.combatants
                 .map((c, i) => ({ ...c, originalIndex: i }))
@@ -2071,6 +2128,7 @@
         }
 
         function newRound() {
+            if (!isAdmin) return;
             combatState.round++;
 
             // Reset to highest initiative
@@ -2093,6 +2151,7 @@
         }
 
         function endCombat() {
+            if (!isAdmin) return;
             if (!confirm('End combat? This will reset the encounter.')) return;
 
             combatState.phase = 'ended';
@@ -2106,6 +2165,7 @@
         // INITIATIVE
         // ============================================================
         function rollAllInitiative() {
+            if (!isAdmin) return;
             combatState.combatants.forEach((c, i) => {
                 rollInitiativeFor(i, true);
             });
@@ -2115,13 +2175,15 @@
         }
 
         function rollInitiativeFor(index, silent = false) {
+            if (!isAdmin && !isPlayerMode) return; // Allow player to roll their own (or not depending on game rules)
+
             const c = combatState.combatants[index];
-            const dexMod = Math.floor(c.dex / 2);
+            const dexMod = Math.floor(c.dex / 2); // Assuming DEX/2 for initial modifier
             const roll = Math.floor(Math.random() * 10) + 1; // 1d10
             c.initiative = roll + dexMod + (c.initBonus || 0);
 
             if (!silent) {
-                addLogEntry('move', `<span class="log-actor">${c.name}</span> rolled initiative: <span class="log-roll">${c.initiative}</span> (${roll} + DEX ${dexMod})`);
+                addLogEntry('move', `<span class="log-actor">${c.name}</span> rolled initiative: <span class="log-roll">${c.initiative}</span> (${roll} + DEX ${dexMod} + Bonus ${c.initBonus || 0})`);
                 saveState();
                 renderAll();
             }
@@ -2154,27 +2216,6 @@
 
         function generateId() {
             return 'comb_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
-        }
-
-        function createDefaultCombatant(type = 'player') {
-            return {
-                id: generateId(),
-                name: type === 'player' ? 'New Agent' : 'Enemy',
-                type: type,
-                str: 10, dex: 10, con: 10, int: 10, pow: 10, cha: 10,
-                hp: 10, hpMax: 10,
-                wp: 10, wpMax: 10,
-                san: 50, sanMax: 99,
-                armor: 0,
-                initiative: 0,
-                initBonus: 0,
-                firearms: 20, melee: 30, unarmed: 40, dodge: 30, athletics: 30, alertness: 20,
-                weapons: [],
-                statuses: [],
-                notes: '',
-                isVisible: true,
-                owner: null // For player-controlled characters
-            };
         }
 
         function openAddCombatantModal(type = 'player') {
@@ -2339,6 +2380,7 @@
                 wp: parseInt(document.getElementById('comb-wp').value) || 10,
                 wpMax: parseInt(document.getElementById('comb-wp-max').value) || 10,
                 san: parseInt(document.getElementById('comb-san').value) || 50,
+                sanMax: 99, // Set max sanity
                 armor: parseInt(document.getElementById('comb-armor').value) || 0,
                 initBonus: parseInt(document.getElementById('comb-init-bonus').value) || 0,
                 firearms: parseInt(document.getElementById('comb-firearms').value) || 20,
@@ -2378,12 +2420,12 @@
                 str: t.str, dex: t.dex, con: t.con, int: t.int, pow: t.pow, cha: t.cha,
                 hp: t.hp, hpMax: t.hp,
                 wp: t.pow, wpMax: t.pow,
-                san: 0,
+                san: 0, sanMax: 99,
                 armor: t.armor,
                 initBonus: 0,
                 initiative: 0,
                 firearms: t.firearms, melee: t.melee, unarmed: t.unarmed, dodge: t.dodge,
-                athletics: 30, alertness: 30,
+                athletics: t.athletics || 30, alertness: t.alertness || 20,
                 weapons: JSON.parse(JSON.stringify(t.weapons)),
                 statuses: [],
                 notes: '',
@@ -2424,6 +2466,7 @@
             combatState.activeIndex = -1;
             combatState.round = 1;
             combatState.phase = 'setup';
+            combatState.log = [];
 
             addLogEntry('system', 'All combatants cleared.');
             saveState();
@@ -2460,7 +2503,8 @@
         let currentAttacker = null;
 
         function openAttackModalFor(index) {
-            if (!isAdmin && combatState.combatants[index].type !== 'player') return;
+            // Allow player if it is their turn
+            if (!isAdmin && !canPlayerControl(index)) return;
 
             currentAttacker = combatState.combatants[index];
             document.getElementById('attack-attacker-name').value = currentAttacker.name;
@@ -2469,6 +2513,7 @@
             const targetSelect = document.getElementById('attack-target');
             targetSelect.innerHTML = '<option value="">-- Select Target --</option>';
             combatState.combatants.forEach((c, i) => {
+                // Do not allow attacking oneself, do not allow attacking dead targets
                 if (i !== index && c.hp > 0) {
                     targetSelect.innerHTML += `<option value="${i}">${c.name} (HP: ${c.hp}/${c.hpMax})</option>`;
                 }
@@ -2493,6 +2538,11 @@
             document.getElementById('attack-location').disabled = true;
             document.getElementById('attack-result').classList.add('hidden');
 
+            // Apply AIMED status if present
+            if (currentAttacker.statuses?.some(s => s.name === 'aimed')) {
+                document.getElementById('attack-aimed').checked = true;
+            }
+
             updateAttackFinalSkill();
             document.getElementById('attack-modal').classList.remove('hidden');
         }
@@ -2514,11 +2564,7 @@
 
             document.getElementById('attack-location').disabled = !called;
 
-            let mod = parseInt(document.getElementById('attack-modifier').value) || 0;
-            if (aimed) mod += 20;
-            if (called) mod -= 20;
-
-            // Don't change modifier field, just update final
+            // Modifier field still tracks custom modifier, just update the final skill
             updateAttackFinalSkill();
         }
 
@@ -2534,6 +2580,10 @@
         }
 
         function executeAttack() {
+            // Allow player if it is their turn
+            const attackerIndex = combatState.combatants.findIndex(c => c.name === currentAttacker.name);
+            if (!isAdmin && !canPlayerControl(attackerIndex)) return;
+
             const targetIndex = document.getElementById('attack-target').value;
             if (!targetIndex) {
                 alert('Select a target!');
@@ -2553,6 +2603,11 @@
 
             const calledShot = document.getElementById('attack-called').checked;
             const location = calledShot ? document.getElementById('attack-location').value : 'body';
+
+            // Consume AIMED status if it was used
+            if (document.getElementById('attack-aimed').checked) {
+                currentAttacker.statuses = currentAttacker.statuses?.filter(s => s.name !== 'aimed') || [];
+            }
 
             // Determine result
             const isCritical = roll <= skill && roll % 11 === 0 && roll !== 0; // Doubles under skill
@@ -2644,13 +2699,16 @@
                 logMessage += `<span class="log-failure">MISS</span>`;
 
                 // Check if target can dodge or fight back
-                resultHTML += `
-                    <div style="margin-top:15px;padding:10px;border:1px dashed var(--border-color);">
-                        <div style="font-size:11px;color:#888;margin-bottom:5px;">TARGET REACTION</div>
-                        <button onclick="rollOpposedDodge(${parseInt(targetIndex)}, ${roll})" style="margin:3px;">🏃 Dodge (${target.dodge}%)</button>
-                        <button onclick="rollOpposedFightBack(${parseInt(targetIndex)}, ${roll})" style="margin:3px;">⚔️ Fight Back</button>
-                    </div>
-                `;
+                // This section is only visible to the DM, the player only sees the miss result
+                if (isAdmin) {
+                    resultHTML += `
+                        <div style="margin-top:15px;padding:10px;border:1px dashed var(--border-color);">
+                            <div style="font-size:11px;color:#888;margin-bottom:5px;">TARGET REACTION (DM Only)</div>
+                            <button onclick="rollOpposedDodge(${parseInt(targetIndex)}, ${roll})" style="margin:3px;">🏃 Dodge (${target.dodge}%)</button>
+                            <button onclick="rollOpposedFightBack(${parseInt(targetIndex)}, ${roll})" style="margin:3px;">⚔️ Fight Back</button>
+                        </div>
+                    `;
+                }
             }
 
             resultHTML += '</div>';
@@ -2660,20 +2718,13 @@
 
             addLogEntry('attack', logMessage);
             saveState();
-            renderAll();
-        }
-
-        function quickAttackWith(combatantIndex, weaponIndex) {
-            openAttackModalFor(combatantIndex);
-
-            setTimeout(() => {
-                const weaponSelect = document.getElementById('attack-weapon');
-                weaponSelect.value = weaponIndex.toString();
-                updateAttackSkill();
-            }, 100);
+            renderAll(); // Re-render to update the active combatant's status (e.g. remove AIMED)
         }
 
         function quickApplyDamage(targetIndex, damage) {
+            // This function is for DM use from the attack result modal.
+            if (!isAdmin) return;
+
             const target = combatState.combatants[targetIndex];
             const oldHp = target.hp;
             target.hp = Math.max(0, target.hp - damage);
@@ -2693,6 +2744,7 @@
         }
 
         function rollOpposedDodge(defenderIndex, attackRoll) {
+            if (!isAdmin) return;
             const defender = combatState.combatants[defenderIndex];
             const dodgeRoll = Math.floor(Math.random() * 100) + 1;
             const success = dodgeRoll <= defender.dodge;
@@ -2714,12 +2766,10 @@
             addLogEntry('move', message);
             saveState();
             renderAll();
-
-            // Update the attack result display
-            alert(`Dodge Roll: ${dodgeRoll} vs ${defender.dodge}% - ${success ? 'SUCCESS' : 'FAILED'}`);
         }
 
         function rollOpposedFightBack(defenderIndex, attackRoll) {
+            if (!isAdmin) return;
             const defender = combatState.combatants[defenderIndex];
             const fightBackSkill = Math.max(defender.unarmed, defender.melee);
             const fbRoll = Math.floor(Math.random() * 100) + 1;
@@ -2738,13 +2788,25 @@
             addLogEntry('attack', message);
             saveState();
             renderAll();
-
-            alert(`Fight Back Roll: ${fbRoll} vs ${fightBackSkill}% - ${success ? 'SUCCESS' : 'FAILED'}`);
         }
 
         function closeAttackModal() {
             document.getElementById('attack-modal').classList.add('hidden');
             currentAttacker = null;
+            // Clear the result area
+            document.getElementById('attack-result').innerHTML = '';
+            document.getElementById('attack-result').classList.add('hidden');
+        }
+
+        function quickAttackWith(combatantIndex, weaponIndex) {
+            if (!isAdmin) return;
+            openAttackModalFor(combatantIndex);
+
+            setTimeout(() => {
+                const weaponSelect = document.getElementById('attack-weapon');
+                weaponSelect.value = weaponIndex.toString();
+                updateAttackSkill();
+            }, 100);
         }
 
         // ============================================================
@@ -2774,9 +2836,13 @@
 
         function closeDamageModal() {
             document.getElementById('damage-modal').classList.add('hidden');
+            document.getElementById('damage-result').innerHTML = '';
+            document.getElementById('damage-result').classList.add('hidden');
         }
 
         function applyDamage() {
+            if (!isAdmin) return;
+
             const targetIndex = document.getElementById('damage-target').value;
             if (!targetIndex) {
                 alert('Select a target!');
@@ -2849,14 +2915,16 @@
             // Apply damage based on type
             if (target.hp > 0) {
                 const oldHp = target.hp;
+                const oldWp = target.wp;
+                const oldSan = target.san;
 
                 if (damageType === 'psychic') {
                     target.wp = Math.max(0, target.wp - damage);
-                    resultHTML += `<div style="margin-top:10px;font-size:14px;">WP: ${target.wp + damage} → ${target.wp}</div>`;
+                    resultHTML += `<div style="margin-top:10px;font-size:14px;">WP: ${oldWp} → ${target.wp}</div>`;
                     logMessage = logMessage.replace('damage</span>', 'WP damage</span>');
                 } else if (damageType === 'san') {
                     target.san = Math.max(0, (target.san || 50) - damage);
-                    resultHTML += `<div style="margin-top:10px;font-size:14px;">SAN: ${(target.san || 50) + damage} → ${target.san}</div>`;
+                    resultHTML += `<div style="margin-top:10px;font-size:14px;">SAN: ${oldSan} → ${target.san}</div>`;
                     logMessage = logMessage.replace('damage</span>', 'SAN loss</span>');
                 } else {
                     target.hp = Math.max(0, target.hp - damage);
@@ -2892,6 +2960,7 @@
         }
 
         function applyHealing() {
+            if (!isAdmin) return;
             const targetIndex = document.getElementById('damage-target').value;
             if (!targetIndex) {
                 alert('Select a target!');
@@ -2901,6 +2970,7 @@
             const target = combatState.combatants[parseInt(targetIndex)];
             const dice = document.getElementById('damage-dice').value.trim();
             const flat = parseInt(document.getElementById('damage-flat').value) || 0;
+            const damageType = document.getElementById('damage-type').value;
 
             let healing = 0;
 
@@ -2915,10 +2985,21 @@
             }
 
             const oldHp = target.hp;
-            target.hp = Math.min(target.hpMax, target.hp + healing);
-            const actualHeal = target.hp - oldHp;
+            const oldWp = target.wp;
+            let actualHeal = 0;
+            let resourceType = '';
 
-            // Remove dying status if healed
+            if (damageType === 'psychic') {
+                target.wp = Math.min(target.wpMax, target.wp + healing);
+                actualHeal = target.wp - oldWp;
+                resourceType = 'WP';
+            } else {
+                target.hp = Math.min(target.hpMax, target.hp + healing);
+                actualHeal = target.hp - oldHp;
+                resourceType = 'HP';
+            }
+
+            // Remove dying status if HP healed above 0
             if (target.hp > 0) {
                 target.statuses = (target.statuses || []).filter(s => s.name !== 'dying');
             }
@@ -2926,13 +3007,13 @@
             document.getElementById('damage-result').innerHTML = `
                 <div style="text-align:center;">
                     <div style="font-size:14px;color:#888;">Healing</div>
-                    <div style="font-size:36px;font-weight:bold;color:var(--success-color);">+${actualHeal} HP</div>
-                    <div style="margin-top:10px;font-size:14px;">HP: ${oldHp} → ${target.hp}</div>
+                    <div style="font-size:36px;font-weight:bold;color:var(--success-color);">+${actualHeal} ${resourceType}</div>
+                    <div style="margin-top:10px;font-size:14px;">${resourceType}: ${resourceType === 'HP' ? oldHp : oldWp} → ${resourceType === 'HP' ? target.hp : target.wp}</div>
                 </div>
             `;
             document.getElementById('damage-result').classList.remove('hidden');
 
-            addLogEntry('heal', `<span class="log-target">${target.name}</span> heals <span class="log-success">${actualHeal} HP</span> (${oldHp} → ${target.hp})`);
+            addLogEntry('heal', `<span class="log-target">${target.name}</span> heals <span class="log-success">+${actualHeal} ${resourceType}</span>`);
             saveState();
             renderAll();
         }
@@ -2963,6 +3044,7 @@
         }
 
         function applyStatus() {
+            if (!isAdmin) return;
             const targetIndex = document.getElementById('status-target').value;
             if (!targetIndex) {
                 alert('Select a target!');
@@ -3014,6 +3096,8 @@
         }
 
         function tickStatusDurations(combatantIndex) {
+            if (!isAdmin) return; // Only DM ticks status
+
             const c = combatState.combatants[combatantIndex];
             if (!c.statuses) return;
 
@@ -3034,7 +3118,8 @@
                 addLogEntry('status', `<span class="log-target">${c.name}</span> status expired: ${name}`);
             });
 
-            // Handle special status effects
+            // Handle recurring damage status effects (simplified)
+            const oldHp = c.hp;
             if (c.statuses.some(s => s.name === 'bleeding')) {
                 const bleedDmg = Math.floor(Math.random() * 3) + 1; // 1d3
                 c.hp = Math.max(0, c.hp - bleedDmg);
@@ -3052,6 +3137,14 @@
                 c.hp = Math.max(0, c.hp - poisonDmg);
                 addLogEntry('damage', `<span class="log-target">${c.name}</span> takes <span class="log-damage">${poisonDmg} poison damage</span>`);
             }
+
+            // Check if recurring damage killed the combatant
+            if (c.hp <= 0 && oldHp > 0) {
+                addStatusToCombatant(combatantIndex, 'dying', 'negative', 0);
+                addLogEntry('damage', `<span class="log-actor">${c.name}</span> is <span class="log-critical">DYING!</span> from recurring damage.`);
+            }
+
+            saveState(); // Save state after status tick
         }
 
         // ============================================================
@@ -3066,7 +3159,8 @@
                 <div class="result-breakdown">${expression}: ${result.breakdown}</div>
             `;
 
-            addLogEntry('system', `Dice roll: <span class="log-roll">${expression} = ${result.total}</span> (${result.breakdown})`);
+            const rollerName = isAdmin ? 'ADMIN' : 'PLAYER';
+            addLogEntry('system', `<span class="log-actor">${rollerName}</span> rolled: <span class="log-roll">${expression} = ${result.total}</span> (${result.breakdown})`);
             saveState();
         }
 
@@ -3101,12 +3195,30 @@
                         if (keep) {
                             const keepCount = parseInt(keep.substring(2));
                             rolls.sort((a, b) => keep.startsWith('kh') ? b - a : a - b);
-                            rolls = rolls.slice(0, keepCount);
-                        }
+                            
+                            const keptRolls = rolls.slice(0, keepCount);
+                            const sum = keptRolls.reduce((a, b) => a + b, 0) * sign;
+                            total += sum;
 
-                        const sum = rolls.reduce((a, b) => a + b, 0) * sign;
-                        total += sum;
-                        breakdown.push(`[${rolls.join(', ')}]`);
+                            // Include kept rolls in breakdown, marked as kept
+                            let breakdownRolls = rolls.map(r => {
+                                if (keptRolls.includes(r)) {
+                                    // A simple way to mark kept dice (not perfect for duplicates but good enough)
+                                    const index = keptRolls.indexOf(r);
+                                    if (index !== -1) {
+                                        keptRolls.splice(index, 1); // Consume the kept roll
+                                        return r;
+                                    }
+                                }
+                                return `<s>${r}</s>`; // Strikethrough dropped dice
+                            });
+                            
+                            breakdown.push(`[${breakdownRolls.join(', ')}]`);
+                        } else {
+                            const sum = rolls.reduce((a, b) => a + b, 0) * sign;
+                            total += sum;
+                            breakdown.push(`[${rolls.join(', ')}]`);
+                        }
                     }
                 } else {
                     // Flat number
@@ -3176,7 +3288,8 @@
                 <div class="result-breakdown">${label ? label + ': ' : ''}${expr}: ${result.breakdown}</div>
             `;
 
-            addLogEntry('system', `${label ? label + ' - ' : ''}Dice roll: <span class="log-roll">${expr} = ${result.total}</span>`);
+            const rollerName = isAdmin ? 'ADMIN' : 'PLAYER';
+            addLogEntry('system', `<span class="log-actor">${rollerName}</span> rolled ${label ? label + ' - ' : ''}: <span class="log-roll">${expr} = ${result.total}</span>`);
 
             closeCustomRollModal();
             saveState();
@@ -3219,25 +3332,28 @@
         // ============================================================
 
         function performAction(actionType) {
-            if (!isAdmin) return;
+            const activeIndex = combatState.activeIndex;
+            if (activeIndex === -1 || combatState.phase !== 'active') return;
 
-            const active = combatState.combatants[combatState.activeIndex];
-            if (!active) return;
+            // Only allow action if Admin OR if player mode and this is the player's controlled char
+            if (!isAdmin && !canPlayerControl(activeIndex)) return;
+
+            const active = combatState.combatants[activeIndex];
 
             switch (actionType) {
                 case 'attack':
-                    openAttackModalFor(combatState.activeIndex);
+                    openAttackModalFor(activeIndex);
                     break;
 
                 case 'aim':
-                    addStatusToCombatant(combatState.activeIndex, 'aimed', 'positive', 1);
+                    addStatusToCombatant(activeIndex, 'aimed', 'positive', 1);
                     addLogEntry('move', `<span class="log-actor">${active.name}</span> takes aim (+20% to next attack).`);
                     saveState();
                     renderAll();
                     break;
 
                 case 'dodge':
-                    addStatusToCombatant(combatState.activeIndex, 'dodging', 'positive', 1);
+                    addStatusToCombatant(activeIndex, 'dodging', 'positive', 1);
                     addLogEntry('move', `<span class="log-actor">${active.name}</span> prepares to dodge.`);
                     saveState();
                     renderAll();
@@ -3251,13 +3367,13 @@
 
                 case 'fightback':
                     addLogEntry('attack', `<span class="log-actor">${active.name}</span> readies to fight back against next attacker.`);
-                    addStatusToCombatant(combatState.activeIndex, 'ready to counter', 'positive', 1);
+                    addStatusToCombatant(activeIndex, 'ready to counter', 'positive', 1);
                     saveState();
                     renderAll();
                     break;
 
                 case 'disarm':
-                    performDisarm();
+                    if (isAdmin) performDisarm(); else alert("Only the Handler can resolve Disarm checks.");
                     break;
 
                 case 'reload':
@@ -3267,12 +3383,12 @@
                     break;
 
                 case 'firstaid':
-                    performFirstAid();
+                    if (isAdmin) performFirstAid(); else alert("Only the Handler can resolve First Aid checks.");
                     break;
 
                 case 'called':
                     // Open attack modal with called shot enabled
-                    openAttackModalFor(combatState.activeIndex);
+                    openAttackModalFor(activeIndex);
                     setTimeout(() => {
                         document.getElementById('attack-called').checked = true;
                         updateAttackModifiers();
@@ -3280,11 +3396,11 @@
                     break;
 
                 case 'pin':
-                    performPin();
+                    if (isAdmin) performPin(); else alert("Only the Handler can resolve Pin checks.");
                     break;
 
                 case 'delay':
-                    addStatusToCombatant(combatState.activeIndex, 'delayed', 'neutral', 0);
+                    addStatusToCombatant(activeIndex, 'delayed', 'neutral', 0);
                     addLogEntry('move', `<span class="log-actor">${active.name}</span> delays their turn.`);
                     saveState();
                     renderAll();
@@ -3301,6 +3417,7 @@
         }
 
         function performDisarm() {
+            if (!isAdmin) return;
             const active = combatState.combatants[combatState.activeIndex];
 
             // Prompt for target
@@ -3346,6 +3463,7 @@
         }
 
         function performFirstAid() {
+            if (!isAdmin) return;
             const active = combatState.combatants[combatState.activeIndex];
 
             // Prompt for target
@@ -3399,6 +3517,7 @@
         }
 
         function performPin() {
+            if (!isAdmin) return;
             const active = combatState.combatants[combatState.activeIndex];
 
             const targets = combatState.combatants
@@ -3511,7 +3630,14 @@
             const element = document.getElementById('screenshot-area');
 
             try {
-                // Temporarily remove some styles for cleaner screenshot
+                // Temporarily force admin view and remove styles for cleaner screenshot
+                const wasAdmin = isAdmin;
+                isAdmin = true;
+                const wasPlayerMode = isPlayerMode;
+                isPlayerMode = false;
+                document.body.classList.remove('player-mode');
+                renderAll(); // Re-render to show all admin elements for screenshot
+
                 element.style.maxWidth = 'none';
 
                 const canvas = await html2canvas(element, {
@@ -3521,8 +3647,13 @@
                     useCORS: true
                 });
 
-                // Restore styles
+                // Restore styles and mode
                 element.style.maxWidth = '';
+                isAdmin = wasAdmin;
+                isPlayerMode = wasPlayerMode;
+                if(isPlayerMode) document.body.classList.add('player-mode');
+                renderAll();
+
 
                 // Download
                 const link = document.createElement('a');
@@ -3547,181 +3678,9 @@
             return div.innerHTML;
         }
 
-        // Keyboard shortcuts
-        document.addEventListener('keydown', (e) => {
-            if (!isAdmin) return;
-            if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
-
-            switch (e.key) {
-                case 'n':
-                case 'N':
-                    if (combatState.phase === 'active') nextTurn();
-                    break;
-                case 'r':
-                case 'R':
-                    if (e.ctrlKey || e.metaKey) return; // Don't interfere with refresh
-                    rollDice('1d100');
-                    break;
-                case 'Escape':
-                    closeAllModals();
-                    break;
-            }
-        });
-
         function closeAllModals() {
             document.querySelectorAll('.modal-overlay').forEach(m => m.classList.add('hidden'));
         }
-
-        // ============================================================
-        // SKILL CHECK HELPERS (Delta Green specific)
-        // ============================================================
-
-        function rollSkillCheck(skillValue, label = 'Skill Check') {
-            const roll = Math.floor(Math.random() * 100) + 1;
-            const success = roll <= skillValue;
-            const isCritical = success && roll % 11 === 0 && roll !== 0;
-            const isFumble = (roll > skillValue && roll % 11 === 0) || roll === 100;
-
-            let result;
-            if (isCritical) result = 'CRITICAL SUCCESS';
-            else if (isFumble) result = 'FUMBLE';
-            else if (success) result = 'SUCCESS';
-            else result = 'FAILURE';
-
-            const message = `${label}: <span class="log-roll">${roll}</span> vs ${skillValue}% - ` +
-                (isCritical ? `<span class="log-critical">${result}</span>` :
-                 isFumble ? `<span class="log-failure">${result}</span>` :
-                 success ? `<span class="log-success">${result}</span>` :
-                 `<span class="log-failure">${result}</span>`);
-
-            addLogEntry('system', message);
-
-            document.getElementById('dice-result').innerHTML = `
-                <div class="result-value" style="color:${success ? 'var(--success-color)' : 'var(--danger-color)'};">${roll}</div>
-                <div class="result-breakdown">${label} vs ${skillValue}%: ${result}</div>
-            `;
-
-            saveState();
-            return { roll, success, isCritical, isFumble };
-        }
-
-        // Sanity check helper
-        function rollSanityCheck(sanValue, successLoss, failureLoss) {
-            const roll = Math.floor(Math.random() * 100) + 1;
-            const success = roll <= sanValue;
-            const isFumble = roll === 100;
-
-            let loss;
-            if (isFumble) {
-                // Maximum possible loss on fumble
-                loss = maximizeDice(failureLoss);
-            } else if (success) {
-                loss = typeof successLoss === 'number' ? successLoss : rollDiceExpression(successLoss).total;
-            } else {
-                loss = typeof failureLoss === 'number' ? failureLoss : rollDiceExpression(failureLoss).total;
-            }
-
-            const message = `SAN Check: <span class="log-roll">${roll}</span> vs ${sanValue}% - ` +
-                (success ? `<span class="log-success">Success</span>` : `<span class="log-failure">Failed</span>`) +
-                ` (${isFumble ? 'FUMBLE! ' : ''}Lost ${loss} SAN)`;
-
-            addLogEntry('status', message);
-
-            document.getElementById('dice-result').innerHTML = `
-                <div class="result-value" style="color:${success ? 'var(--warning-color)' : 'var(--danger-color)'};">-${loss}</div>
-                <div class="result-breakdown">SAN: ${success ? 'Passed' : 'Failed'}${isFumble ? ' (FUMBLE!)' : ''}</div>
-            `;
-
-            saveState();
-            return { roll, success, loss, isFumble };
-        }
-
-        // ============================================================
-        // QUICK ROLL BUTTONS FOR ACTIVE COMBATANT
-        // ============================================================
-
-        function quickRollActiveSkill(skillName) {
-            const active = combatState.combatants[combatState.activeIndex];
-            if (!active) return;
-
-            const skillValue = active[skillName.toLowerCase()] || 30;
-            rollSkillCheck(skillValue, `${active.name}'s ${skillName}`);
-        }
-
-        function quickRollActiveStat(statName) {
-            const active = combatState.combatants[combatState.activeIndex];
-            if (!active) return;
-
-            const statValue = (active[statName.toLowerCase()] || 10) * 5;
-            rollSkillCheck(statValue, `${active.name}'s ${statName.toUpperCase()}×5`);
-        }
-
-        // ============================================================
-        // IMPORT/EXPORT
-        // ============================================================
-
-        function exportCombat() {
-            const data = JSON.stringify(combatState, null, 2);
-            const blob = new Blob([data], { type: 'application/json' });
-            const url = URL.createObjectURL(blob);
-
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = `combat_session_${combatSessionId}.json`;
-            a.click();
-
-            URL.revokeObjectURL(url);
-            addLogEntry('system', 'Combat session exported.');
-        }
-
-        function importCombat() {
-            const input = document.createElement('input');
-            input.type = 'file';
-            input.accept = '.json';
-
-            input.onchange = (e) => {
-                const file = e.target.files[0];
-                if (!file) return;
-
-                const reader = new FileReader();
-                reader.onload = (e) => {
-                    try {
-                        const data = JSON.parse(e.target.result);
-                        combatState = data;
-                        addLogEntry('system', 'Combat session imported.');
-                        saveState();
-                        renderAll();
-                    } catch (err) {
-                        alert('Failed to import: Invalid file format');
-                    }
-                };
-                reader.readAsText(file);
-            };
-
-            input.click();
-        }
-
-        // ============================================================
-        // BOND/MOTIVATION TRACKER (Delta Green specific)
-        // ============================================================
-
-        function showBondDamage(combatantIndex, bondName, damageAmount) {
-            const c = combatState.combatants[combatantIndex];
-            if (!c) return;
-
-            addLogEntry('status', `<span class="log-actor">${c.name}</span>'s bond "${bondName}" takes ${damageAmount} damage from stress.`);
-            saveState();
-        }
-
-        // ============================================================
-        // AUTO-SAVE INTERVAL
-        // ============================================================
-
-        setInterval(() => {
-            if (isAdmin && combatState.combatants.length > 0) {
-                saveState();
-            }
-        }, 30000); // Auto-save every 30 seconds
 
         // ============================================================
         // PLAYER MODE RESTRICTIONS
@@ -3734,75 +3693,72 @@
             const c = combatState.combatants[combatantIndex];
             if (!c) return false;
 
-            // Player can only control if:
-            // 1. It's their character (type === 'player')
-            // 2. It's their turn
-            // 3. Player view is enabled
-            return c.type === 'player' &&
+            // Simple player control: they can only act when it is their turn AND the active combatant is a 'player' type.
+            // In a more complex system, this would also check for an 'owner' property matching a player name.
+            return combatState.settings.playerViewEnabled &&
                    combatantIndex === combatState.activeIndex &&
-                   combatState.settings.playerViewEnabled;
+                   c.type === 'player';
         }
 
         // Update UI based on player mode
         function applyPlayerModeRestrictions() {
             if (!isPlayerMode) return;
 
-            // Hide admin-only elements
+            // Re-hide admin-only elements (in case they were temporarily shown)
             document.querySelectorAll('.admin-only').forEach(el => {
                 el.style.display = 'none';
             });
 
-            // Restrict interactions on non-player characters
-            combatState.combatants.forEach((c, i) => {
-                if (!canPlayerControl(i)) {
-                    const card = document.querySelector(`.combatant-card[data-index="${i}"]`);
-                    if (card) {
-                        card.querySelectorAll('input, button').forEach(el => {
-                            if (!el.classList.contains('player-visible')) {
-                                el.disabled = true;
-                            }
-                        });
+            // Restrict interactions on all cards
+            document.querySelectorAll('.combatant-card').forEach(card => {
+                const index = parseInt(card.dataset.index);
+                const isControlled = canPlayerControl(index);
+
+                // Disable all inputs/buttons that are not controlled by the current player.
+                card.querySelectorAll('input, button').forEach(el => {
+                    if (el.classList.contains('admin-only')) return;
+
+                    if (!isControlled) {
+                        el.disabled = true;
+                        if (el.tagName === 'INPUT') el.readOnly = true;
+                    } else {
+                        el.disabled = false;
+                        if (el.tagName === 'INPUT') el.readOnly = false;
                     }
+                });
+
+                // Hide card actions that are not available to the player on non-active turns
+                if (index !== combatState.activeIndex) {
+                    card.querySelector('.card-actions')?.style.setProperty('display', 'none', 'important');
+                } else {
+                    card.querySelector('.card-actions')?.style.removeProperty('display');
                 }
             });
 
-            // Hide enemy stats if setting is disabled
-            if (!combatState.settings.showEnemyStats) {
-                combatState.combatants.forEach((c, i) => {
-                    if (c.type === 'enemy') {
-                        const card = document.querySelector(`.combatant-card[data-index="${i}"]`);
-                        if (card) {
-                            card.querySelector('.attributes-grid')?.classList.add('hidden');
-                            card.querySelector('.skills-section')?.classList.add('hidden');
-                        }
-                    }
-                });
-            }
 
-            // Hide enemy HP if setting is disabled
-            if (!combatState.settings.showEnemyHp) {
-                combatState.combatants.forEach((c, i) => {
-                    if (c.type === 'enemy') {
-                        const card = document.querySelector(`.combatant-card[data-index="${i}"]`);
-                        if (card) {
-                            const hpBar = card.querySelector('.stat-bar-fill.hp');
-                            if (hpBar) hpBar.parentElement.classList.add('hidden');
-                        }
-                    }
-                });
-            }
+            // Hide enemy stats if setting is disabled
+            document.querySelectorAll('.combatant-card.enemy').forEach(card => {
+                if (!combatState.settings.showEnemyStats) {
+                    card.querySelector('.attributes-grid')?.classList.add('hidden');
+                    card.querySelector('.skills-section')?.classList.add('hidden');
+                } else {
+                    card.querySelector('.attributes-grid')?.classList.remove('hidden');
+                    card.querySelector('.skills-section')?.classList.remove('hidden');
+                }
+
+                // Hide enemy HP if setting is disabled
+                if (!combatState.settings.showEnemyHp) {
+                    const hpContainer = card.querySelector('.stat-bar-container:first-child');
+                    if (hpContainer) hpContainer.style.setProperty('display', 'none', 'important');
+                } else {
+                    const hpContainer = card.querySelector('.stat-bar-container:first-child');
+                    if (hpContainer) hpContainer.style.removeProperty('display');
+                }
+            });
         }
 
-        // Call this after rendering
-        const originalRenderAll = renderAll;
-        renderAll = function() {
-            originalRenderAll();
-            if (isPlayerMode) {
-                applyPlayerModeRestrictions();
-            }
-        };
 
-        console.log('Delta Green Combat Manager initialized.');
+        console.log('Afraid of the Dark Combat Manager initialized.');
         console.log('Keyboard shortcuts: N = Next turn, R = Roll d100, Esc = Close modals');
     </script>
 </body>
